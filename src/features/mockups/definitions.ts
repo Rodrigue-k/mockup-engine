@@ -40,10 +40,10 @@ export const MOCKUPS: Record<string, any> = {
       borderRadius: 57,
     },
     screenConfig: {
-      top: '2.1926%',
-      left: '5.2571%',
-      width: '89.9321%',
-      height: '95.6148%'
+      top: '2.17%',     // Slightly expanded to seal edges
+      left: '5.20%',    // Slightly expanded to seal edges
+      width: '90.1%',   // Slightly expanded to seal edges
+      height: '95.7%'   // Slightly expanded to seal edges
     },
     frameId: 'iphone17',
   },

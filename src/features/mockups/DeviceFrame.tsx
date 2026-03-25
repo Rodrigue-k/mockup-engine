@@ -33,7 +33,19 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({ mediaUrl, mediaType, c
         }}
       >
         
-        {/* Layer 1: La Zone de l'Écran (Vidéo + Masque SVG) */}
+        {/* Layer 0: La Zone de Fond Solide (Pour boucher les fuites de lumière) */}
+        <div 
+          className="absolute z-0 bg-black pointer-events-none"
+          style={{
+            top: screen.top,
+            left: screen.left,
+            width: screen.width,
+            height: screen.height,
+            borderRadius: '54px', // Rayon large pour ne pas dépasser des coins du téléphone
+          }}
+        />
+
+        {/* Layer 1: La Zone Masquée de l'Écran (Vidéo + Masque SVG) */}
         <div 
           className="absolute z-10 overflow-hidden bg-black"
           style={{
@@ -53,16 +65,18 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({ mediaUrl, mediaType, c
         >
           {mediaUrl ? (
             <div className="w-full h-full relative">
-              {/* Média principal - Fixé en object-cover pour usage personnel */}
+              {/* Média principal - Dynamic Fit */}
               {mediaType === 'video' ? (
                 <video 
                   src={mediaUrl} autoPlay loop muted playsInline 
-                  className="absolute inset-0 w-full h-full object-cover scale-[1.01] pointer-events-none"
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ objectFit: canvasSettings.videoFit as any }}
                 />
               ) : (
                 <img 
                   src={mediaUrl} alt="Preview" 
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ objectFit: canvasSettings.videoFit as any }}
                 />
               )}
             </div>

@@ -2,12 +2,27 @@ import { create } from 'zustand';
 
 export type MockupType = 'iphone-15-pro';
 
+export type BackgroundShape = { color: string; size: number; x: number; y: number; blur: number };
+
+export const BACKGROUND_PRESETS: { [key: string]: BackgroundShape[] } = {
+  'aurora-soft': [
+    { color: '#D4E6F1', size: 600, x: 20, y: 10, blur: 120 }, // Bleu très clair
+    { color: '#FADBD8', size: 500, x: 70, y: 60, blur: 100 }, // Rose très clair
+  ],
+  'sunset-mist': [
+    { color: '#FDEBD0', size: 650, x: 10, y: 50, blur: 130 }, // Orange pâle
+    { color: '#D5F5E3', size: 450, x: 80, y: 20, blur: 90 },  // Vert pâle
+  ],
+  'carbon-clean': [] // Fond gris très clair uni pour le mode minimaliste
+};
+
 export interface CanvasSettings {
-  backgroundColor: string;
+  backgroundPreset: string;
   padding: number;
   borderRadius: number;
   shadowIntensity: number;
   shadowSpread: number;
+  videoFit: 'contain' | 'cover' | 'fill';
   mockupType: MockupType;
   mockupTilt: { x: number; y: number; z: number };
 }
@@ -24,6 +39,7 @@ interface StudioState {
   // Canvas View Configuration
   canvasSettings: CanvasSettings;
   updateCanvasSettings: (settings: Partial<CanvasSettings>) => void;
+  setBackgroundPreset: (preset: string) => void;
 
   // Export/Rendering State
   exportState: ExportState;
@@ -37,11 +53,12 @@ interface StudioState {
 }
 
 const DEFAULT_SETTINGS: CanvasSettings = {
-  backgroundColor: '#F5F5F7',
+  backgroundPreset: 'aurora-soft',
   padding: 80,
   borderRadius: 48,
   shadowIntensity: 0.1,
   shadowSpread: 40,
+  videoFit: 'contain',
   mockupType: 'iphone-15-pro',
   mockupTilt: { x: 0, y: 0, z: 0 },
 };
@@ -73,6 +90,9 @@ export const useStudioStore = create<StudioState>((set) => ({
   canvasSettings: DEFAULT_SETTINGS,
   updateCanvasSettings: (settings) => set((state) => ({
     canvasSettings: { ...state.canvasSettings, ...settings },
+  })),
+  setBackgroundPreset: (backgroundPreset) => set((state) => ({
+    canvasSettings: { ...state.canvasSettings, backgroundPreset }
   })),
 
   exportState: 'idle',

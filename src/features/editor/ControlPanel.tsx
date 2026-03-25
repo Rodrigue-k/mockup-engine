@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { useStudioStore, MockupType } from '@/store/useStudioStore';
+import { useStudioStore, MockupType, BACKGROUND_PRESETS } from '@/store/useStudioStore';
 import { MOCKUPS } from '@/features/mockups/definitions';
 
 export const ControlPanel = () => {
   const { 
     canvasSettings, 
     updateCanvasSettings, 
+    setBackgroundPreset,
     setMediaFile,
     mediaFile,
     exportState,
@@ -62,6 +63,25 @@ export const ControlPanel = () => {
         <section className="space-y-6">
           <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block pt-2 border-t border-studio-border pt-6">Réglages Studio</label>
           
+          <div className="space-y-4">
+             <label className="text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">Format Vidéo</label>
+             <div className="flex bg-studio-bg p-1 rounded-xl">
+               {(['contain', 'cover', 'fill'] as const).map((mode) => (
+                 <button 
+                   key={mode}
+                   onClick={() => updateCanvasSettings({ videoFit: mode })}
+                   className={`flex-1 py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all capitalize
+                     ${canvasSettings.videoFit === mode 
+                       ? 'bg-studio-card text-studio-accent shadow-sm ring-1 ring-black/5' 
+                       : 'text-studio-muted hover:text-studio-text'
+                     }`}
+                 >
+                   {mode === 'fill' ? 'stretch' : mode}
+                 </button>
+               ))}
+             </div>
+          </div>
+
           <div className="space-y-3">
              <div className="flex justify-between items-center text-[11px] font-medium text-studio-text">
                 <span>Padding</span>
@@ -99,20 +119,47 @@ export const ControlPanel = () => {
           </div>
         </section>
 
-        {/* Color Palette */}
+        {/* Background Presets */}
         <section className="space-y-4">
-           <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block border-t border-studio-border pt-6">Arrière-plan</label>
-           <div className="flex flex-wrap gap-2.5">
-              {['#F9F9FB', '#FFFFFF', '#F3F4F6', '#E5E7EB', '#DBEAFE', '#FDF2F8', '#111827'].map((c) => (
-                <button 
-                   key={c}
-                   onClick={() => updateCanvasSettings({ backgroundColor: c })}
-                   style={{ backgroundColor: c }}
-                   className={`w-7 h-7 rounded-full border border-studio-border ring-1 ring-offset-2 transition-all ${
-                     canvasSettings.backgroundColor === c ? 'ring-studio-accent scale-110 shadow-sm' : 'ring-transparent opacity-80'
-                   }`}
-                />
-              ))}
+           <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block border-t border-studio-border pt-6">Arrière-plan (Smart)</label>
+           <div className="grid grid-cols-2 gap-3">
+              {Object.keys(BACKGROUND_PRESETS).map((presetKey) => {
+                const shapes = BACKGROUND_PRESETS[presetKey];
+                return (
+                  <button 
+                    key={presetKey}
+                    onClick={() => setBackgroundPreset(presetKey)}
+                    className={`relative h-14 rounded-xl overflow-hidden border-2 transition-all p-2 text-left group
+                      ${canvasSettings.backgroundPreset === presetKey 
+                        ? 'border-studio-accent bg-studio-accent/5 ring-1 ring-studio-accent/20' 
+                        : 'border-studio-border bg-studio-card hover:border-studio-muted/30'
+                      }`}
+                  >
+                    {/* Tiny visual representation of the preset */}
+                    <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity">
+                      {shapes.map((s, i) => (
+                        <div 
+                          key={i}
+                          className="absolute rounded-full blur-[10px]"
+                          style={{
+                            background: s.color,
+                            width: '40%',
+                            height: '40%',
+                            left: `${s.x}%`,
+                            top: `${s.y}%`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                    
+                    <span className={`relative text-[10px] font-bold uppercase tracking-wider block
+                      ${canvasSettings.backgroundPreset === presetKey ? 'text-studio-accent' : 'text-studio-text'}
+                    `}>
+                      {presetKey.replace('-', ' ')}
+                    </span>
+                  </button>
+                );
+              })}
            </div>
         </section>
 
