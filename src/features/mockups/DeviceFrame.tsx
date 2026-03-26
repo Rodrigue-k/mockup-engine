@@ -1,20 +1,20 @@
-'use client';
 import React from 'react';
-import { useStudioStore } from '@/store/useStudioStore';
-import { MOCKUPS } from '@/features/mockups/definitions';
+import { Video, staticFile } from 'remotion';
+import { CanvasSettings, MOCKUPS } from '@/features/mockups/definitions';
 
 interface DeviceFrameProps {
   mediaUrl: string | null;
   mediaType: 'video' | 'image' | null;
+  settings: CanvasSettings; // Obligatoire
+  baseUrl?: string;
   className?: string;
 }
 
-export const DeviceFrame: React.FC<DeviceFrameProps> = ({ mediaUrl, mediaType, className = "" }) => {
-  const { canvasSettings } = useStudioStore();
-  const mockup = MOCKUPS[canvasSettings.mockupType] || MOCKUPS['iphone-15-pro'];
-
-  const bodyUrl = `/assets/mockups/${mockup.frameId}/body.png`;
-  const maskUrl = `/assets/mockups/${mockup.frameId}/display.svg`;
+export const DeviceFrame: React.FC<DeviceFrameProps> = ({ mediaUrl, mediaType, settings: canvasSettings, baseUrl, className = "" }) => {
+  const mockup = MOCKUPS[canvasSettings.mockupType] || MOCKUPS['iphone-17-pro'];
+  
+  const bodyUrl = staticFile(`assets/mockups/${mockup.frameId}/body.png`);
+  const maskUrl = staticFile(`assets/mockups/${mockup.frameId}/display.svg`);
   
   // Coordonnées de l'écran (à définir dans definitions.ts)
   const screen = mockup.screenConfig || { top: '2.2926%', left: '5.3571%', width: '89.7321%', height: '95.4148%' };
@@ -67,14 +67,15 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({ mediaUrl, mediaType, c
             <div className="w-full h-full relative">
               {/* Média principal - Dynamic Fit */}
               {mediaType === 'video' ? (
-                <video 
-                  src={mediaUrl} autoPlay loop muted playsInline 
+                <Video 
+                  src={mediaUrl.startsWith('/') ? staticFile(mediaUrl.slice(1)) : mediaUrl}
                   className="absolute inset-0 w-full h-full pointer-events-none"
                   style={{ objectFit: canvasSettings.videoFit as any }}
                 />
               ) : (
                 <img 
-                  src={mediaUrl} alt="Preview" 
+                  src={mediaUrl.startsWith('/') ? staticFile(mediaUrl.slice(1)) : mediaUrl} 
+                  alt="Preview" 
                   className="absolute inset-0 w-full h-full pointer-events-none"
                   style={{ objectFit: canvasSettings.videoFit as any }}
                 />
