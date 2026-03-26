@@ -4,9 +4,8 @@ import React from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { PreviewCanvas } from './PreviewCanvas';
 import { ControlPanel } from './ControlPanel';
-
 export default function StudioApp() {
-  const { isSidebarOpen, canvasSettings } = useStudioStore();
+  const { isSidebarOpen } = useStudioStore();
 
   return (
     <main className="flex h-screen overflow-hidden bg-[#f6f5f3] selection:bg-studio-accent/20">

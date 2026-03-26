@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useStudioStore, MockupType, BACKGROUND_PRESETS } from '@/store/useStudioStore';
-import { MOCKUPS } from '@/features/mockups/definitions';
+import { useStudioStore } from '@/store/useStudioStore';
+import { PREMIUM_BACKGROUNDS, AspectRatio } from '@/config/studio-constants';
 
 export const ControlPanel = () => {
   const { 
@@ -11,9 +11,13 @@ export const ControlPanel = () => {
     setBackgroundPreset,
     setMediaFile,
     mediaFile,
-    exportState,
+    mediaType,
+    exportStatus,
     exportProgress,
-    setExportState
+    setExportStatus,
+    updateExportProgress,
+    finishExport,
+    exportError
   } = useStudioStore();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -21,8 +25,90 @@ export const ControlPanel = () => {
     if (file) setMediaFile(file);
   };
 
-  const handleMockupChange = (type: MockupType) => {
-    updateCanvasSettings({ mockupType: type });
+  const handleExport = async () => {
+    if (!mediaFile) return;
+
+    try {
+      setExportStatus('exporting');
+      updateExportProgress(0);
+
+      const formData = new FormData();
+      formData.append('file', mediaFile);
+      formData.append('mediaType', mediaFile.type.startsWith('video/') ? 'video' : 'image');
+      formData.append('settings', JSON.stringify(canvasSettings));
+
+      const response = await fetch('/api/export', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const startData = await response.json();
+      if (!response.ok || !startData.success) {
+        throw new Error(startData.error || "Erreur lors de l'initialisation de l'export.");
+      }
+
+      const jobId = startData.jobId;
+
+      // Système de Polling résilient pour suivre la progression du rendu Remotion
+      let retryCount = 0;
+      const MAX_RETRIES = 5;
+
+      const poll = async () => {
+        try {
+          const statusResponse = await fetch(`/api/export/status?id=${jobId}`);
+          const statusData = await statusResponse.json();
+
+          if (!statusResponse.ok || !statusData.success) {
+            throw new Error(statusData.error || "Erreur lors du suivi de l'export.");
+          }
+
+          // Reset retries on any successful network call
+          retryCount = 0;
+          updateExportProgress(statusData.progress);
+
+          if (statusData.status === 'completed') {
+            if (statusData.url) {
+              const link = document.createElement('a');
+              link.href = statusData.url;
+              link.download = `mockup-export-${Date.now()}.mp4`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
+            finishExport();
+            return;
+          }
+
+          if (statusData.status === 'error') {
+            throw new Error(statusData.error || "Le rendu a échoué sur le serveur.");
+          }
+
+          // Planifier la prochaine vérification avec un intervalle stable
+          setTimeout(poll, 2500);
+
+        } catch (err: any) {
+          // Gestion des redémarrages serveur Turbopack (Failed to fetch)
+          if ((err instanceof TypeError && err.message === 'Failed to fetch') || err.name === 'AbortError') {
+             if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                console.warn(`[Studio] Connexion interrompue, tentative ${retryCount}/${MAX_RETRIES} dans 5s...`);
+                setTimeout(poll, 5000);
+                return;
+             }
+          }
+
+          exportError(err.message);
+          console.error("Erreur polling fatale:", err);
+        }
+      };
+
+      // Démarrer le polling
+      poll();
+
+    } catch (err: any) {
+      exportError(err.message);
+      alert(`Erreur d'export: ${err.message}`);
+    }
   };
 
   return (
@@ -48,12 +134,12 @@ export const ControlPanel = () => {
 
       <div className="flex-1 overflow-y-auto p-6 space-y-8">
         
-        {/* Appareil Choice (Static for now since only iPhone remains) */}
+        {/* Appareil Choice */}
         <section className="space-y-4">
           <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block">Appareil</label>
           <div className="grid grid-cols-1 gap-2">
             <div className="flex items-center justify-between p-3.5 rounded-xl border border-studio-accent bg-studio-accent/5 text-studio-accent shadow-sm ring-1 ring-studio-accent/10">
-              <span className="text-xs font-medium">iPhone 15 Pro</span>
+              <span className="text-xs font-medium">iPhone 17 Pro</span>
               <div className="w-1.5 h-1.5 rounded-full bg-studio-accent" />
             </div>
           </div>
@@ -65,22 +151,41 @@ export const ControlPanel = () => {
           
           <div className="space-y-4">
              <label className="text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">Format Vidéo</label>
-             <div className="flex bg-studio-bg p-1 rounded-xl">
-               {(['contain', 'cover', 'fill'] as const).map((mode) => (
-                 <button 
-                   key={mode}
-                   onClick={() => updateCanvasSettings({ videoFit: mode })}
-                   className={`flex-1 py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all capitalize
-                     ${canvasSettings.videoFit === mode 
-                       ? 'bg-studio-card text-studio-accent shadow-sm ring-1 ring-black/5' 
-                       : 'text-studio-muted hover:text-studio-text'
-                     }`}
-                 >
-                   {mode === 'fill' ? 'stretch' : mode}
-                 </button>
-               ))}
-             </div>
-          </div>
+              <div className="flex bg-studio-bg p-1 rounded-xl">
+                {(['contain', 'cover', 'fill'] as const).map((mode) => (
+                  <button 
+                    key={mode}
+                    onClick={() => updateCanvasSettings({ videoFit: mode })}
+                    className={`flex-1 py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all capitalize
+                      ${canvasSettings.videoFit === mode 
+                        ? 'bg-studio-card text-studio-accent shadow-sm ring-1 ring-black/5' 
+                        : 'text-studio-muted hover:text-studio-text'
+                      }`}
+                  >
+                    {mode === 'fill' ? 'stretch' : mode}
+                  </button>
+                ))}
+              </div>
+           </div>
+
+           <div className="space-y-4">
+              <label className="text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">Format Vidéo</label>
+              <div className="grid grid-cols-4 gap-2 bg-studio-bg p-1 rounded-xl">
+                {(['9:16', '16:9', '1:1', '4:5'] as AspectRatio[]).map((format) => (
+                  <button 
+                    key={format}
+                    onClick={() => updateCanvasSettings({ format })}
+                    className={`py-1.5 text-[10px] font-bold rounded-lg transition-all
+                      ${canvasSettings.format === format 
+                        ? 'bg-studio-card text-studio-accent shadow-sm ring-1 ring-black/5' 
+                        : 'text-studio-muted hover:text-studio-text'
+                      }`}
+                  >
+                    {format}
+                  </button>
+                ))}
+              </div>
+           </div>
 
           <div className="space-y-3">
              <div className="flex justify-between items-center text-[11px] font-medium text-studio-text">
@@ -123,43 +228,45 @@ export const ControlPanel = () => {
         <section className="space-y-4">
            <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block border-t border-studio-border pt-6">Arrière-plan (Smart)</label>
            <div className="grid grid-cols-2 gap-3">
-              {Object.keys(BACKGROUND_PRESETS).map((presetKey) => {
-                const shapes = BACKGROUND_PRESETS[presetKey];
-                return (
-                  <button 
-                    key={presetKey}
-                    onClick={() => setBackgroundPreset(presetKey)}
-                    className={`relative h-14 rounded-xl overflow-hidden border-2 transition-all p-2 text-left group
-                      ${canvasSettings.backgroundPreset === presetKey 
-                        ? 'border-studio-accent bg-studio-accent/5 ring-1 ring-studio-accent/20' 
-                        : 'border-studio-border bg-studio-card hover:border-studio-muted/30'
-                      }`}
-                  >
-                    {/* Tiny visual representation of the preset */}
-                    <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity">
-                      {shapes.map((s, i) => (
-                        <div 
-                          key={i}
-                          className="absolute rounded-full blur-[10px]"
-                          style={{
-                            background: s.color,
-                            width: '40%',
-                            height: '40%',
-                            left: `${s.x}%`,
-                            top: `${s.y}%`,
-                          }}
-                        />
-                      ))}
-                    </div>
-                    
-                    <span className={`relative text-[10px] font-bold uppercase tracking-wider block
-                      ${canvasSettings.backgroundPreset === presetKey ? 'text-studio-accent' : 'text-studio-text'}
-                    `}>
-                      {presetKey.replace('-', ' ')}
-                    </span>
-                  </button>
-                );
-              })}
+              {Object.entries(PREMIUM_BACKGROUNDS).map(([key, config]) => (
+                <button 
+                  key={key}
+                  onClick={() => updateCanvasSettings({ 
+                    bgType: config.type as any, 
+                    bgValue: config.value,
+                    backgroundPreset: key 
+                  })}
+                  className={`relative h-14 rounded-xl overflow-hidden border-2 transition-all p-2 text-left group
+                    ${canvasSettings.backgroundPreset === key 
+                      ? 'border-studio-accent bg-studio-accent/5 ring-1 ring-studio-accent/20' 
+                      : 'border-studio-border bg-studio-card hover:border-studio-muted/30'
+                    }`}
+                >
+                  <div className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity">
+                    {config.type === 'solid' || config.type === 'gradient' ? (
+                      <div style={{ background: config.value, width: '100%', height: '100%' }} />
+                    ) : (
+                      <div 
+                        style={{ 
+                          backgroundColor: '#F8FAFC',
+                          backgroundImage: config.type === 'pattern_dots' 
+                            ? `radial-gradient(${config.value} 1px, transparent 1px)` 
+                            : `linear-gradient(to right, ${config.value} 1px, transparent 1px), linear-gradient(to bottom, ${config.value} 1px, transparent 1px)`,
+                          backgroundSize: config.type === 'pattern_dots' ? '10px 10px' : '15px 15px',
+                          width: '100%', 
+                          height: '100%' 
+                        }} 
+                      />
+                    )}
+                  </div>
+                  
+                  <span className={`relative text-[10px] font-bold uppercase tracking-wider block
+                    ${canvasSettings.backgroundPreset === key ? 'text-studio-accent' : 'text-studio-text'}
+                  `}>
+                    {key.replace('solid_', '').replace('gradient_', '').replace('pattern_', '').replace('_', ' ')}
+                  </span>
+                </button>
+              ))}
            </div>
         </section>
 
@@ -167,7 +274,7 @@ export const ControlPanel = () => {
       
       {/* Export Section */}
       <div className="p-6 border-t border-studio-border bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
-        {exportState === 'rendering' ? (
+        {exportStatus === 'exporting' ? (
           <div className="space-y-3">
             <div className="flex justify-between items-center text-[10px] font-bold text-studio-muted uppercase tracking-wider">
               <span>Génération du rendu...</span>
@@ -182,7 +289,7 @@ export const ControlPanel = () => {
           </div>
         ) : (
           <button
-            onClick={() => setExportState('rendering')}
+            onClick={handleExport}
             disabled={!mediaFile}
             className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all ${
               mediaFile 
