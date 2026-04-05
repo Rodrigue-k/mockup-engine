@@ -25,7 +25,8 @@ export interface MockupDefinition {
   };
 }
 
-export type MockupType = 'iphone-17-pro';
+export type MockupType = 'iphone-17-pro' | 'macbook-pro-16';
+export type DeviceOrientation = 'portrait' | 'landscape';
 
 export type BackgroundShape = { color: string; size: number; x: number; y: number; blur: number };
 
@@ -53,6 +54,8 @@ export interface CanvasSettings {
   videoFit: 'contain' | 'cover' | 'fill';
   mockupType: MockupType;
   mockupTilt: { x: number; y: number; z: number };
+  deviceOrientation: DeviceOrientation;
+  exportBackground: boolean;
   baseUrl?: string;
 }
 
@@ -77,5 +80,26 @@ export const MOCKUPS: Record<string, any> = {
       height: '95.7%'   // Slightly expanded to seal edges
     },
     frameId: 'iphone17',
+  },
+  'macbook-pro-16': {
+    id: 'macbook-pro-16',
+    name: 'MacBook Pro 16',
+    type: 'desktop',
+    width: 2401,
+    height: 1376,
+    viewport: {
+      x: 252,
+      y: 56,
+      width: 1908,
+      height: 1190,
+      borderRadius: 0,
+    },
+    screenConfig: {
+      top: '4.07%',
+      left: '10.50%',
+      width: '79.47%',
+      height: '86.48%'
+    },
+    frameId: 'macbook16',
   },
 };

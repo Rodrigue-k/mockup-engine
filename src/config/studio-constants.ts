@@ -8,6 +8,7 @@ export const FORMAT_DIMENSIONS: Record<AspectRatio, { width: number; height: num
 };
 
 export const PREMIUM_BACKGROUNDS = {
+  none: { type: 'none', value: 'transparent' },
   solid_white: { type: 'solid', value: '#FFFFFF' },
   solid_dark: { type: 'solid', value: '#0F172A' },
   gradient_hyper: { type: 'gradient', value: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
