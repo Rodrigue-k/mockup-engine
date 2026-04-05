@@ -75,7 +75,7 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
           width: screen.width,
           height: screen.height,
           backgroundColor: 'black',
-          borderRadius: `${mockup.viewport.borderRadius}px`,
+          borderRadius: isMac ? 0 : (isLandscape ? '40px' : '20px'),
           zIndex: 0,
         }}
       />
@@ -89,7 +89,7 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
           height: screen.height,
           overflow: 'hidden',
           backgroundColor: 'black',
-          borderRadius: `${mockup.viewport.borderRadius}px`,
+          borderRadius: isMac ? 0 : (isLandscape ? '40px' : '20px'),
           zIndex: isMac ? 30 : 10,
         }}
       >

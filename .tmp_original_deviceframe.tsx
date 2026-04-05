@@ -70,7 +70,7 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
           left: screen.left,
           width: screen.width,
           height: screen.height,
-          borderRadius: isMac ? 0 : (isLandscape ? '40px' : '20px'),
+          borderRadius: `${mockup.viewport.borderRadius}px`,
         }}
       />
 
@@ -82,7 +82,7 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
           left: screen.left,
           width: screen.width,
           height: screen.height,
-          borderRadius: isMac ? 0 : (isLandscape ? '40px' : '20px'),
+          borderRadius: `${mockup.viewport.borderRadius}px`,
         }}
       >
         {mediaUrl ? (
