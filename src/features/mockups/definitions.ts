@@ -88,7 +88,7 @@ export const MOCKUPS: Record<string, any> = {
     width: 2401,
     height: 1376,
     viewport: {
-      x: 252,
+      x: 246,
       y: 56,
       width: 1908,
       height: 1190,

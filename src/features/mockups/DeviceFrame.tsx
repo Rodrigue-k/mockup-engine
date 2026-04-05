@@ -38,27 +38,24 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
   // Correcting media rotation for landscape mode
   // Since the whole frame is rotated -90deg, the media needs +90deg to be upright.
   // And its dimensions must be precisely swapped based on the screen's actual physical area.
-  const mediaStyle: React.CSSProperties = isLandscape ? {
+  const mediaGeometry: React.CSSProperties = isLandscape ? {
     position: 'absolute',
     top: '50%',
     left: '50%',
     width: `${(screenPxHeight / screenPxWidth) * 100}%`,
     height: `${(screenPxWidth / screenPxHeight) * 100}%`,
     transform: 'translate(-50%, -50%) rotate(90deg)',
-    objectFit: canvasSettings.videoFit as any,
     maxWidth: 'none',
     maxHeight: 'none',
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
   } : {
     width: '100%',
     height: '100%',
-    objectFit: canvasSettings.videoFit as any,
     maxWidth: 'none',
     maxHeight: 'none',
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
   };
 
   const isMac = mockup.id.includes('macbook');
+  const finalRadius = isMac ? 0 : (isLandscape ? 40 : 20);
 
   const deviceLayers = (
     <>
@@ -70,7 +67,7 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
           left: screen.left,
           width: screen.width,
           height: screen.height,
-          borderRadius: isMac ? 0 : (isLandscape ? '40px' : '20px'),
+          borderRadius: finalRadius,
         }}
       />
 
@@ -82,7 +79,7 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
           left: screen.left,
           width: screen.width,
           height: screen.height,
-          borderRadius: isMac ? 0 : (isLandscape ? '40px' : '20px'),
+          borderRadius: finalRadius,
         }}
       >
         {mediaUrl ? (
@@ -92,16 +89,21 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
                 key={`video-${canvasSettings.videoFit}`}
                 src={mediaUrl.startsWith('/') ? staticFile(mediaUrl.slice(1)) : mediaUrl}
                 className="pointer-events-none"
-                style={mediaStyle}
+                style={{
+                  ...mediaGeometry,
+                  objectFit: canvasSettings.videoFit as any,
+                }}
               />
             ) : (
-              <img
-                key={`img-${canvasSettings.videoFit}`}
-                src={mediaUrl.startsWith('/') ? staticFile(mediaUrl.slice(1)) : mediaUrl}
-                alt="Preview"
-                className="pointer-events-none"
-                style={mediaStyle}
-                crossOrigin="anonymous"
+              <div
+                style={{
+                  ...mediaGeometry,
+                  backgroundImage: `url(${mediaUrl.startsWith('/') ? staticFile(mediaUrl.slice(1)) : mediaUrl})`,
+                  backgroundSize: canvasSettings.videoFit === 'contain' ? 'contain' : (canvasSettings.videoFit === 'fill' ? '100% 100%' : 'cover'),
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  borderRadius: finalRadius,
+                }}
               />
             )}
           </div>

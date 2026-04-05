@@ -43,6 +43,9 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
   // The phone asset is portrait. In landscape mode, we rotate the whole phone -90deg.
   // To have the media appear upright relative to the landscape-held phone,
   // we rotate the media +90deg inside its portrait container and perfectly scale it.
+  const isMac = mockup.id.includes('macbook');
+  const finalRadius = isMac ? 0 : (isLandscape ? 40 : 20);
+
   const mediaStyle: React.CSSProperties = isLandscape ? {
     position: 'absolute',
     top: '50%',
@@ -63,8 +66,6 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
     transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
   };
 
-  const isMac = mockup.id.includes('macbook');
-
   const deviceLayers = (
     <>
       <div
@@ -75,7 +76,7 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
           width: screen.width,
           height: screen.height,
           backgroundColor: 'black',
-          borderRadius: isMac ? 0 : (isLandscape ? '40px' : '20px'),
+          borderRadius: finalRadius,
           zIndex: 0,
         }}
       />
@@ -89,7 +90,7 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
           height: screen.height,
           overflow: 'hidden',
           backgroundColor: 'black',
-          borderRadius: isMac ? 0 : (isLandscape ? '40px' : '20px'),
+          borderRadius: finalRadius,
           zIndex: isMac ? 30 : 10,
         }}
       >
@@ -104,7 +105,10 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
             <Img
               key={`img-${settings.videoFit}`}
               src={resolvedMediaUrl}
-              style={mediaStyle}
+              style={{
+                ...mediaStyle,
+                borderRadius: finalRadius,
+              }}
               crossOrigin="anonymous"
             />
           ))}
