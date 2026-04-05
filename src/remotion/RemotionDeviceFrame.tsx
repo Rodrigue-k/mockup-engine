@@ -9,112 +9,180 @@ interface RemotionDeviceFrameProps {
   settings: CanvasSettings;
 }
 
-export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({ 
-  mediaUrl, 
-  mediaType, 
-  settings 
+export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
+  mediaUrl,
+  mediaType,
+  settings,
 }) => {
   const mockup = MOCKUPS[settings.mockupType] || MOCKUPS['iphone-17-pro'];
-  
-  // Coordonnées de l'écran
-  const screen = mockup.screenConfig || { top: '2.2926%', left: '5.3571%', width: '89.7321%', height: '95.4148%' };
+  const isLandscape = settings.deviceOrientation === 'landscape';
 
-  // Assets statiques résolus via staticFile()
+  const screen = mockup.screenConfig || {
+    top: '2.2926%',
+    left: '5.3571%',
+    width: '89.7321%',
+    height: '95.4148%',
+  };
+
   const bodyUrl = staticFile(`assets/mockups/${mockup.frameId}/body.png`);
   const maskUrl = staticFile(`assets/mockups/${mockup.frameId}/display.svg`);
-  
-  // Résolution du média (source utilisateur)
-  const resolvedMediaUrl = mediaUrl ? (mediaUrl.startsWith('/') ? staticFile(mediaUrl.slice(1)) : mediaUrl) : null;
+  const resolvedMediaUrl = mediaUrl
+    ? mediaUrl.startsWith('/')
+      ? staticFile(mediaUrl.slice(1))
+      : mediaUrl
+    : null;
+
+  const perspectiveTransform = `perspective(2000px) rotateX(${settings.mockupTilt.x}deg) rotateY(${settings.mockupTilt.y}deg)`;
+
+  const parsedScreenWidth = parseFloat(screen.width) / 100;
+  const parsedScreenHeight = parseFloat(screen.height) / 100;
+  const screenPxWidth = mockup.width * parsedScreenWidth;
+  const screenPxHeight = mockup.height * parsedScreenHeight;
+
+  // Correcting media rotation for landscape mode
+  // The phone asset is portrait. In landscape mode, we rotate the whole phone -90deg.
+  // To have the media appear upright relative to the landscape-held phone,
+  // we rotate the media +90deg inside its portrait container and perfectly scale it.
+  const mediaStyle: React.CSSProperties = isLandscape ? {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: `${(screenPxHeight / screenPxWidth) * 100}%`,
+    height: `${(screenPxWidth / screenPxHeight) * 100}%`,
+    transform: 'translate(-50%, -50%) rotate(90deg)',
+    objectFit: settings.videoFit as any,
+    maxWidth: 'none',
+    maxHeight: 'none',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+  } : {
+    width: '100%',
+    height: '100%',
+    objectFit: settings.videoFit as any,
+    maxWidth: 'none',
+    maxHeight: 'none',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+  };
+
+  const isMac = mockup.id.includes('macbook');
+
+  const deviceLayers = (
+    <>
+      <div
+        style={{
+          position: 'absolute',
+          top: screen.top,
+          left: screen.left,
+          width: screen.width,
+          height: screen.height,
+          backgroundColor: 'black',
+          borderRadius: `${mockup.viewport.borderRadius}px`,
+          zIndex: 0,
+        }}
+      />
+
+      <div
+        style={{
+          position: 'absolute',
+          top: screen.top,
+          left: screen.left,
+          width: screen.width,
+          height: screen.height,
+          overflow: 'hidden',
+          backgroundColor: 'black',
+          borderRadius: `${mockup.viewport.borderRadius}px`,
+          zIndex: isMac ? 30 : 10,
+        }}
+      >
+        {resolvedMediaUrl &&
+          (mediaType === 'video' ? (
+            <Video
+              key={`video-${settings.videoFit}`}
+              src={resolvedMediaUrl}
+              style={mediaStyle}
+            />
+          ) : (
+            <Img
+              key={`img-${settings.videoFit}`}
+              src={resolvedMediaUrl}
+              style={mediaStyle}
+              crossOrigin="anonymous"
+            />
+          ))}
+      </div>
+
+      <Img
+        src={bodyUrl}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 20,
+          objectFit: 'contain',
+        }}
+        crossOrigin="anonymous"
+      />
+    </>
+  );
+
+  const shadowFilter = `drop-shadow(0 ${30 * settings.shadowIntensity}px ${60 * settings.shadowIntensity}px rgba(0,0,0,${0.2 * settings.shadowIntensity}))`;
+  const innerWidthPercent = (mockup.width / mockup.height) * 100;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: '#ffffff' }}>
-      {/* 1. Calque d'arrière-plan Premium */}
+    <AbsoluteFill style={{ backgroundColor: 'transparent' }}>
       <BackgroundLayer type={settings.bgType || 'solid'} value={settings.bgValue || '#FFFFFF'} />
 
-      {/* Device Frame Layer */}
       <AbsoluteFill style={{ padding: settings.padding }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
-          
-          <div 
-            style={{ 
-              position: 'relative',
-              height: '100%',
-              width: 'auto',
-              aspectRatio: `${mockup.width} / ${mockup.height}`,
-              transform: `perspective(2000px) rotateX(${settings.mockupTilt.x}deg) rotateY(${settings.mockupTilt.y}deg)`,
-              filter: `drop-shadow(0 ${30 * settings.shadowIntensity}px ${60 * settings.shadowIntensity}px rgba(0,0,0,${0.2 * settings.shadowIntensity}))`,
-              transformStyle: 'preserve-3d',
-            }}
-          >
-            
-            {/* Layer 0: Background Leak Seal */}
-            <div 
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            width: '100%',
+          }}
+        >
+          {isLandscape ? (
+            <div
               style={{
-                position: 'absolute',
-                top: screen.top,
-                left: screen.left,
-                width: screen.width,
-                height: screen.height,
-                backgroundColor: 'black',
-                borderRadius: '54px',
-                zIndex: 0,
-              }}
-            />
-
-            {/* Layer 1: Masked Content Area */}
-            <div 
-              style={{
-                position: 'absolute',
-                top: screen.top,
-                left: screen.left,
-                width: screen.width,
-                height: screen.height,
-                overflow: 'hidden',
-                backgroundColor: 'black',
-                maskImage: `url('${maskUrl}')`,
-                maskSize: '100% 100%',
-                WebkitMaskImage: `url('${maskUrl}')`,
-                WebkitMaskSize: '100% 100%',
-                zIndex: 10,
+                position: 'relative',
+                height: '100%',
+                width: 'auto',
+                aspectRatio: `${mockup.height} / ${mockup.width}`,
+                filter: shadowFilter,
               }}
             >
-              {resolvedMediaUrl && (
-                mediaType === 'video' ? (
-                  <Video 
-                    src={resolvedMediaUrl}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: settings.videoFit as any
-                    }}
-                  />
-                ) : (
-                  <Img 
-                    src={resolvedMediaUrl}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: settings.videoFit as any
-                    }}
-                  />
-                )
-              )}
+              <div
+                style={{
+                  position: 'absolute',
+                  width: `${innerWidthPercent}%`,
+                  height: 'auto',
+                  aspectRatio: `${mockup.width} / ${mockup.height}`,
+                  top: '50%',
+                  left: '50%',
+                  transform: `translate(-50%, -50%) ${perspectiveTransform} rotate(-90deg)`,
+                  transformOrigin: 'center center',
+                  transformStyle: 'preserve-3d',
+                }}
+              >
+                {deviceLayers}
+              </div>
             </div>
-
-            {/* Layer 2: Device Chassis */}
-            <Img 
-              src={bodyUrl} 
+          ) : (
+            <div
               style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
+                position: 'relative',
                 height: '100%',
-                zIndex: 20,
-                objectFit: 'contain'
+                width: 'auto',
+                aspectRatio: `${mockup.width} / ${mockup.height}`,
+                transform: perspectiveTransform,
+                filter: shadowFilter,
+                transformStyle: 'preserve-3d',
               }}
-            />
-            
-          </div>
+            >
+              {deviceLayers}
+            </div>
+          )}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>
