@@ -47,6 +47,8 @@ const DEFAULT_SETTINGS: CanvasSettings = {
   videoFit: 'contain',
   mockupType: 'iphone-17-pro',
   mockupTilt: { x: 0, y: 0, z: 0 },
+  deviceOrientation: 'portrait',
+  exportBackground: true,
 };
 
 export const useStudioStore = create<StudioState>((set) => ({
