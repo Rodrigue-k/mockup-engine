@@ -81,10 +81,12 @@ export const ControlPanel = () => {
 
           if (statusData.status === 'completed') {
             if (statusData.url) {
+              const fileName = statusData.url.split('/').pop();
+              const downloadUrl = `/api/export/download?filename=${fileName}`;
+              
               const link = document.createElement('a');
-              link.href = statusData.url;
-              const ext = type === 'image' ? 'png' : 'mp4';
-              link.download = `mockup-${Date.now()}.${ext}`;
+              link.href = downloadUrl;
+              link.download = fileName || 'mockup.mp4';
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
@@ -129,14 +131,18 @@ export const ControlPanel = () => {
       const refs = getCanvasRefs();
       if (refs?.fullRef) {
         try {
+          setExportStatus('exporting'); // Show loading state on button
+          
           // Instant local capture
           await exportToPng({ current: refs.fullRef }, {
             isTransparent: canvasSettings.backgroundPreset === 'none'
           });
+          
+          finishExport(); // Done
           return;
-        } catch (err) {
+        } catch (err: any) {
           console.warn("Local capture failed, falling back to studio render...", err);
-          // Fallback to server if local fails
+          setExportStatus('idle'); 
         }
       }
     }
