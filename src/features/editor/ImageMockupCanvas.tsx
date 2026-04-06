@@ -73,11 +73,11 @@ export const ImageMockupCanvas = forwardRef<
       {/* Device frame area with padding */}
       <div
         className="absolute inset-0 flex items-center justify-center"
-        style={{ padding: settings.padding }}
       >
         {/* Device-only ref (transparent bg for export without background) */}
-        <div ref={deviceRef} className="h-full w-full flex items-center justify-center">
+        <div className="h-full w-full flex items-center justify-center">
           <DeviceFrame
+            ref={deviceRef}
             mediaUrl={mediaUrl}
             mediaType="image"
             settings={settings}

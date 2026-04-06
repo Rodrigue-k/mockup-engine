@@ -40,11 +40,11 @@ const DEFAULT_SETTINGS: CanvasSettings = {
   bgType: 'solid',
   bgValue: '#FFFFFF',
   format: '9:16',
-  padding: 80,
+  padding: 20,
   borderRadius: 48,
   shadowIntensity: 0.1,
   shadowSpread: 40,
-  videoFit: 'contain',
+  videoFit: 'cover',
   mockupType: 'iphone-17-pro-silver',
   mockupTilt: { x: 0, y: 0, z: 0 },
   deviceOrientation: 'portrait',
@@ -71,7 +71,8 @@ export const useStudioStore = create<StudioState>((set) => ({
     return {
       mediaFile: file,
       mediaPreviewUrl: file ? URL.createObjectURL(file) : null,
-      mediaType
+      mediaType,
+      canvasSettings: { ...state.canvasSettings, videoFit: 'cover' }
     };
   }),
 

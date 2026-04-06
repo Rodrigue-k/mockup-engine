@@ -6,7 +6,6 @@ import { PREMIUM_BACKGROUNDS, AspectRatio } from '@/config/studio-constants';
 import { MOCKUPS } from '@/features/mockups/definitions';
 import { getCanvasRefs } from './PreviewCanvas';
 import { exportToPng } from './useImageExport';
-
 // ── Available Mockup Frames ────────────────────────────────────────────────
 const AVAILABLE_FRAMES = [
   { id: 'iphone-17-pro-silver', name: 'iPhone 17 Pro Silver', category: 'Mobile', available: true },
@@ -29,7 +28,7 @@ export const ControlPanel = () => {
     exportError,
   } = useStudioStore();
 
-  const [isPngExporting, setIsPngExporting] = useState(false);
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,33 +43,8 @@ export const ControlPanel = () => {
     }
   };
 
-  // ── PNG Export (image mode) ────────────────────────────────────────
-  const handlePngExport = async () => {
-    const refs = getCanvasRefs();
-    if (!refs) return;
-
-    // Auto-detect background based on selected preset
-    const withBackground = canvasSettings.backgroundPreset !== 'none';
-
-    setIsPngExporting(true);
-    try {
-      await exportToPng(
-        { current: refs.fullRef },
-        { current: refs.deviceRef },
-        {
-          withBackground,
-          filename: `mockup-${Date.now()}.png`,
-        }
-      );
-    } catch (err) {
-      console.error('PNG export error:', err);
-    } finally {
-      setIsPngExporting(false);
-    }
-  };
-
-  // ── Video Export (video mode) ──────────────────────────────────────
-  const handleVideoExport = async () => {
+  // ── Unified Export Function ───────────────────────────────────────
+  const startExport = async (type: 'image' | 'video') => {
     if (!mediaFile) return;
 
     try {
@@ -79,7 +53,7 @@ export const ControlPanel = () => {
 
       const formData = new FormData();
       formData.append('file', mediaFile);
-      formData.append('mediaType', 'video');
+      formData.append('exportType', type);
       formData.append('settings', JSON.stringify(canvasSettings));
 
       const response = await fetch('/api/export', { method: 'POST', body: formData });
@@ -109,7 +83,8 @@ export const ControlPanel = () => {
             if (statusData.url) {
               const link = document.createElement('a');
               link.href = statusData.url;
-              link.download = `mockup-export-${Date.now()}.mp4`;
+              const ext = type === 'image' ? 'png' : 'mp4';
+              link.download = `mockup-${Date.now()}.${ext}`;
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
@@ -122,7 +97,7 @@ export const ControlPanel = () => {
             throw new Error(statusData.error || 'Le rendu a échoué sur le serveur.');
           }
 
-          setTimeout(poll, 2500);
+          setTimeout(poll, 2000);
         } catch (err: any) {
           if (
             (err instanceof TypeError && err.message === 'Failed to fetch') ||
@@ -144,6 +119,33 @@ export const ControlPanel = () => {
       alert(`Erreur d'export: ${err.message}`);
     }
   };
+
+  const handlePngExport = async () => {
+    // 1. Determine if we can use the fast local capture
+    // If tilt is 0, local capture is almost pixel-perfect and much faster.
+    const hasTilt = Math.abs(canvasSettings.mockupTilt.x) > 0.1 || Math.abs(canvasSettings.mockupTilt.y) > 0.1;
+
+    if (!hasTilt) {
+      const refs = getCanvasRefs();
+      if (refs?.fullRef) {
+        try {
+          // Instant local capture
+          await exportToPng({ current: refs.fullRef }, {
+            isTransparent: canvasSettings.backgroundPreset === 'none'
+          });
+          return;
+        } catch (err) {
+          console.warn("Local capture failed, falling back to studio render...", err);
+          // Fallback to server if local fails
+        }
+      }
+    }
+
+    // 2. High fidelity studio render (server-side)
+    // Required when 3D tilt/perspective/shaders need to be exactly preserved.
+    return startExport('image');
+  };
+  const handleVideoExport = () => startExport('video');
 
   const isImageMode = mediaType === 'image' || mediaType === null;
   const isVideoMode = mediaType === 'video';
@@ -310,9 +312,9 @@ export const ControlPanel = () => {
 
           {/* Aspect format */}
           <div className="space-y-3">
-            <label className="text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">
-              Format Canvas
-            </label>
+            <div className="flex justify-between items-center text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">
+              <span>Format Canvas</span>
+            </div>
             <div className="grid grid-cols-4 gap-2 bg-studio-bg p-1 rounded-xl">
               {(['9:16', '16:9', '1:1', '4:5'] as AspectRatio[]).map((format) => (
                 <button
@@ -372,7 +374,7 @@ export const ControlPanel = () => {
             <input
               type="range"
               min="0"
-              max="200"
+              max="100"
               value={canvasSettings.padding}
               onChange={(e) => updateCanvasSettings({ padding: parseInt(e.target.value) })}
               className="w-full h-1 bg-studio-bg rounded-full appearance-none cursor-pointer accent-studio-accent"
@@ -420,75 +422,78 @@ export const ControlPanel = () => {
           </div>
         </section>
 
-        {/* ── Background Presets ────────────────────────────────────── */}
-        <section className="space-y-4 border-t border-studio-border pt-6">
-          <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block">
-            Arrière-plan
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.entries(PREMIUM_BACKGROUNDS).map(([key, config]) => (
-              <button
-                key={key}
-                onClick={() =>
-                  updateCanvasSettings({
-                    bgType: config.type as any,
-                    bgValue: config.value,
-                    backgroundPreset: key,
-                  })
-                }
-                className={`relative h-14 rounded-xl overflow-hidden border-2 transition-all p-2 text-left group ${
-                  canvasSettings.backgroundPreset === key
-                    ? 'border-studio-accent bg-studio-accent/5 ring-1 ring-studio-accent/20'
-                    : 'border-studio-border bg-studio-card hover:border-studio-muted/30'
-                }`}
-              >
-                <div className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity">
-                  {config.type === 'solid' || config.type === 'gradient' ? (
-                    <div style={{ background: config.value, width: '100%', height: '100%' }} />
-                  ) : config.type === 'none' ? (
-                    <div
-                      style={{
-                        backgroundColor: '#ffffff',
-                        backgroundImage: 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)',
-                        backgroundSize: '10px 10px',
-                        backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
-                        width: '100%',
-                        height: '100%',
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        backgroundColor: '#F8FAFC',
-                        backgroundImage:
-                          config.type === 'pattern_dots'
-                            ? `radial-gradient(${config.value} 1px, transparent 1px)`
-                            : `linear-gradient(to right, ${config.value} 1px, transparent 1px), linear-gradient(to bottom, ${config.value} 1px, transparent 1px)`,
-                        backgroundSize:
-                          config.type === 'pattern_dots' ? '10px 10px' : '15px 15px',
-                        width: '100%',
-                        height: '100%',
-                      }}
-                    />
-                  )}
-                </div>
-                <span
-                  className={`relative text-[10px] font-bold uppercase tracking-wider block ${
+        {/* ── Background Selection ────────────────────────────────────── */}
+        <section className="space-y-6 border-t border-studio-border pt-6">
+
+          <div className="space-y-4">
+            <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block">
+              Style d'arrière-plan
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(PREMIUM_BACKGROUNDS).map(([key, config]) => (
+                <button
+                  key={key}
+                  onClick={() =>
+                    updateCanvasSettings({
+                      bgType: config.type as any,
+                      bgValue: config.value,
+                      backgroundPreset: key,
+                    })
+                  }
+                  className={`relative h-14 rounded-xl overflow-hidden border-2 transition-all p-2 text-left group ${
                     canvasSettings.backgroundPreset === key
-                      ? 'text-studio-accent'
-                      : 'text-studio-text'
+                      ? 'border-studio-accent bg-studio-accent/5 ring-1 ring-studio-accent/20'
+                      : 'border-studio-border bg-studio-card hover:border-studio-muted/30'
                   }`}
                 >
-                  {key === 'none' 
-                    ? 'Aucun' 
-                    : key
-                      .replace('solid_', '')
-                      .replace('gradient_', '')
-                      .replace('pattern_', '')
-                      .replace('_', ' ')}
-                </span>
-              </button>
-            ))}
+                  <div className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity">
+                    {config.type === 'solid' || config.type === 'gradient' ? (
+                      <div style={{ background: config.value, width: '100%', height: '100%' }} />
+                    ) : key === 'none' ? (
+                      <div
+                        style={{
+                          backgroundColor: '#ffffff',
+                          backgroundImage: 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)',
+                          backgroundSize: '10px 10px',
+                          backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
+                          width: '100%',
+                          height: '100%',
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          backgroundColor: '#F8FAFC',
+                          backgroundImage:
+                            config.type === 'pattern_dots'
+                              ? `radial-gradient(${config.value} 1px, transparent 1px)`
+                              : `linear-gradient(to right, ${config.value} 1px, transparent 1px), linear-gradient(to bottom, ${config.value} 1px, transparent 1px)`,
+                          backgroundSize:
+                            config.type === 'pattern_dots' ? '10px 10px' : '15px 15px',
+                          width: '100%',
+                          height: '100%',
+                        }}
+                      />
+                    )}
+                  </div>
+                  <span
+                    className={`relative text-[10px] font-bold uppercase tracking-wider block ${
+                      canvasSettings.backgroundPreset === key
+                        ? 'text-studio-accent'
+                        : 'text-studio-text'
+                    }`}
+                  >
+                    {key === 'none' 
+                      ? 'Transparent' 
+                      : key
+                        .replace('solid_', '')
+                        .replace('gradient_', '')
+                        .replace('pattern_', '')
+                        .replace('_', ' ')}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       </div>
@@ -504,14 +509,14 @@ export const ControlPanel = () => {
             {/* PNG Export button */}
             <button
               onClick={handlePngExport}
-              disabled={!mediaFile || isPngExporting}
+              disabled={!mediaFile || exportStatus === 'exporting'}
               className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all ${
-                mediaFile && !isPngExporting
+                mediaFile && exportStatus !== 'exporting'
                   ? 'bg-studio-text text-white hover:bg-black shadow-lg shadow-black/10 hover:scale-[1.02] active:scale-[0.98]'
                   : 'bg-studio-bg text-studio-muted cursor-not-allowed'
               }`}
             >
-              {isPngExporting ? (
+              {exportStatus === 'exporting' ? (
                 <>
                   <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />

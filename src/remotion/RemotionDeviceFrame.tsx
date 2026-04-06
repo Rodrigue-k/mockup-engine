@@ -33,14 +33,24 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
   const screenStyle = getAbsoluteScreenStyle(mockup);
 
   // Calculate scale based on Remotion composition dimensions and padding
-  const paddingPx = (settings.padding || 0) * 2;
-  const availableHeight = compHeight - paddingPx;
-  const availableWidth = compWidth - paddingPx;
+  // Normalize padding: treat the value as relative to a 1000px reference size
+  const REFERENCE_SIZE = 1000;
+  const paddingRatio = ((settings.padding || 0) * 2) / REFERENCE_SIZE;
+  
+  // Calculate deduction based on composition size
+  const availableWidth = compWidth * (1 - paddingRatio);
+  const availableHeight = compHeight * (1 - paddingRatio);
+  
+  // Calculate scale for both dimensions to fit perfectly within available space
+  const scaleX = availableWidth / mockup.width;
+  const scaleY = availableHeight / mockup.height;
+  let scale = Math.min(scaleX, scaleY);
 
-  // Use orientation-specific scale calculation
-  const scale = isLandscape
-    ? Math.min(availableWidth / mockup.width, availableHeight / mockup.height)
-    : availableHeight / mockup.height;
+  // Sync with preview: Snap to exactly fit at padding 0
+  if ((settings.padding || 0) < 1) {
+    if (Math.abs(scale - scaleX) < 0.1) scale = scaleX;
+    if (Math.abs(scale - scaleY) < 0.1) scale = scaleY;
+  }
 
   const resolvedMediaUrl = mediaUrl
     ? mediaUrl.startsWith('/')
@@ -134,7 +144,7 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
     <AbsoluteFill style={{ backgroundColor: 'transparent' }}>
       <BackgroundLayer type={settings.bgType || 'solid'} value={settings.bgValue || '#FFFFFF'} />
 
-      <AbsoluteFill style={{ padding: settings.padding }}>
+      <AbsoluteFill>
         <div
           style={{
             display: 'flex',
@@ -150,10 +160,20 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
               height: mockup.height * scale,
               width: mockup.width * scale,
               transform: perspectiveTransform,
-              filter: shadowFilter,
               transformStyle: 'preserve-3d',
             }}
           >
+            {/* Separate shadow layer to avoid 3D flattening */}
+            <div style={{ 
+              position: 'absolute', 
+              inset: 0, 
+              filter: shadowFilter,
+              transform: 'translateZ(-1px)', // Push behind device
+              pointerEvents: 'none'
+            }}>
+               <div style={{ width: '100%', height: '100%', background: 'rgba(0,0,0,0.01)', borderRadius: r * scale }} />
+            </div>
+
             {deviceLayers}
           </div>
         </div>

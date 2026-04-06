@@ -14,12 +14,12 @@ interface DeviceFrameProps {
   className?: string;
 }
 
-export const DeviceFrame: React.FC<DeviceFrameProps> = ({
+export const DeviceFrame = React.forwardRef<HTMLDivElement, DeviceFrameProps>(({
   mediaUrl,
   mediaType,
   settings,
   className = '',
-}) => {
+}, ref) => {
   const isLandscape = settings.deviceOrientation === 'landscape';
   const baseMockup = MOCKUPS[settings.mockupType] || MOCKUPS['iphone-17-pro-silver'];
   
@@ -40,9 +40,38 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
     const updateScale = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const s = isLandscape 
-        ? rect.width / mockup.width 
-        : rect.height / mockup.height;
+      
+      // If the container is not yet visible or has no size, skip to avoid NaN
+      if (rect.width === 0 || rect.height === 0) return;
+
+      // Normalize padding: treat the padding value as relative to a 1000px reference
+      // This ensures the mockup looks the same in preview vs final export
+      const REFERENCE_SIZE = 1000;
+      const paddingRatio = ((settings.padding || 0) * 2) / REFERENCE_SIZE;
+      
+      // Protect available space: calculate deduction based on actual container size
+      const deductionX = rect.width * paddingRatio;
+      const deductionY = rect.height * paddingRatio;
+      
+      const availableWidth = Math.max(20, rect.width - deductionX);
+      const availableHeight = Math.max(20, rect.height - deductionY);
+      
+      // Calculate scale for both dimensions to fit perfectly
+      const scaleX = availableWidth / mockup.width;
+      const scaleY = availableHeight / mockup.height;
+      
+      // Use the smaller scale
+      let s = Math.min(scaleX, scaleY);
+
+      // Snap to edges if padding is near zero to eliminate sub-pixel gaps
+      // We use 101% scale when padding is 0 to hide the tiny transparent pixels 
+      // at the edge of the mockup PNG image files.
+      // Snap to edges if padding is near zero to eliminate sub-pixel gaps
+      if ((settings.padding || 0) < 1) {
+        if (Math.abs(s - scaleX) < 0.1) s = scaleX;
+        if (Math.abs(s - scaleY) < 0.1) s = scaleY;
+      }
+      
       setScale(s);
     };
 
@@ -50,7 +79,7 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
     obs.observe(containerRef.current);
     updateScale();
     return () => obs.disconnect();
-  }, [mockup.width, mockup.height, isLandscape]);
+  }, [mockup.width, mockup.height, isLandscape, settings.padding]);
 
   const { borderRadius: r } = mockup.viewport;
   const shadowFilter = `drop-shadow(0 ${30 * settings.shadowIntensity}px ${60 * settings.shadowIntensity}px rgba(0,0,0,${0.2 * settings.shadowIntensity}))`;
@@ -58,6 +87,7 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
 
   const deviceLayers = (
     <div 
+      ref={ref}
       className="absolute top-1/2 left-1/2" 
       style={{ 
         width: mockup.width, 
@@ -92,15 +122,16 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
               alt="User Media"
               className="w-full h-full block"
               style={{ objectFit: settings.videoFit as any }}
-              crossOrigin="anonymous"
+              crossOrigin={mediaUrl.startsWith('blob:') ? undefined : "anonymous"}
             />
           )
         ) : (
-          <img
-            src={placeholderUrl}
-            alt="Screen Placeholder"
-            className="w-full h-full object-cover block"
-          />
+            <img
+              src={placeholderUrl}
+              alt="Screen Placeholder"
+              className="w-full h-full object-cover block"
+              crossOrigin={placeholderUrl.startsWith('blob:') ? undefined : "anonymous"}
+            />
         )}
       </div>
 
@@ -118,7 +149,6 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
           pointerEvents: 'none',
           zIndex: 50
         }}
-        crossOrigin="anonymous"
       />
     </div>
   );
@@ -127,9 +157,8 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
     <div className={`flex items-center justify-center h-full w-full ${className}`}>
       <div
         ref={containerRef}
-        className="relative h-full flex-shrink-0 select-none transition-transform duration-500 ease-out"
+        className="relative w-full h-full select-none transition-transform duration-500 ease-out"
         style={{
-          aspectRatio: `${mockup.width} / ${mockup.height}`,
           transform: perspectiveTransform,
           filter: shadowFilter,
           transformStyle: 'preserve-3d',
@@ -139,4 +168,4 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
       </div>
     </div>
   );
-};
+});

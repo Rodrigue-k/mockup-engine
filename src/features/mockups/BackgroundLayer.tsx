@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill } from 'remotion';
 
 interface BackgroundLayerProps {
-  type: 'solid' | 'gradient' | 'pattern_dots' | 'pattern_grid';
+  type: 'solid' | 'gradient' | 'pattern_dots' | 'pattern_grid' | 'none';
   value: string;
   backgroundColor?: string; // Couleur de fond sous le pattern
 }
@@ -25,6 +25,8 @@ export const BackgroundLayer: React.FC<BackgroundLayerProps> = ({ type, value, b
           backgroundImage: `linear-gradient(to right, ${value} 1px, transparent 1px), linear-gradient(to bottom, ${value} 1px, transparent 1px)`,
           backgroundSize: '40px 40px',
         };
+      case 'none':
+        return { background: 'transparent' };
       default:
         // Transparency checkerboard pattern
         return {

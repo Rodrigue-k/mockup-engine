@@ -6,6 +6,7 @@ import { RemotionDeviceFrame } from '@/remotion/RemotionDeviceFrame';
 import { ImageMockupCanvas } from './ImageMockupCanvas';
 import { useStudioStore } from '@/store/useStudioStore';
 import { FORMAT_DIMENSIONS, AspectRatio } from '@/config/studio-constants';
+import { MOCKUPS, getLandscapeMockup } from '@/features/mockups/definitions';
 
 // Expose canvas refs globally so ControlPanel can trigger PNG export
 export type CanvasRefs = {
@@ -34,7 +35,7 @@ export const PreviewCanvas: React.FC = () => {
   const isImageMode = mediaType === 'image' || mediaType === null;
 
   return (
-    <div className="relative z-10 flex items-center justify-center w-full h-full p-8">
+    <div className="relative z-10 flex items-center justify-center w-full h-full">
       {/* Studio Stage */}
       <div
         className="relative flex items-center justify-center max-h-full max-w-full overflow-hidden select-none"
