@@ -84,8 +84,8 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
           backgroundColor: 'black',
           overflow: 'hidden',
           zIndex: 10,
-          border: '2px solid #000',
           boxSizing: 'border-box',
+          boxShadow: '0 0 0 1px #000', // Subtle black bleed to hide gaps without thickening the bezel
           transform: 'translateZ(0)',
         }}
       >

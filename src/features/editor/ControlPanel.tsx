@@ -6,6 +6,7 @@ import { PREMIUM_BACKGROUNDS, AspectRatio } from '@/config/studio-constants';
 import { MOCKUPS } from '@/features/mockups/definitions';
 import { getCanvasRefs } from './PreviewCanvas';
 import { exportToPng } from './useImageExport';
+
 // ── Available Mockup Frames ────────────────────────────────────────────────
 const AVAILABLE_FRAMES = [
   { id: 'iphone-17-pro-silver', name: 'iPhone 17 Pro Silver', category: 'Mobile', available: true },
@@ -28,7 +29,6 @@ export const ControlPanel = () => {
     exportError,
   } = useStudioStore();
 
-
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,7 +43,7 @@ export const ControlPanel = () => {
     }
   };
 
-  // ── Unified Export Function ───────────────────────────────────────
+  // ── Unified Export Function (Server Side) ────────────────────────
   const startExport = async (type: 'image' | 'video') => {
     if (!mediaFile) return;
 
@@ -81,15 +81,25 @@ export const ControlPanel = () => {
 
           if (statusData.status === 'completed') {
             if (statusData.url) {
-              const fileName = statusData.url.split('/').pop();
-              const downloadUrl = `/api/export/download?filename=${fileName}`;
+              const fileName = statusData.url.split('/').pop()!;
+              const projectTitle = `mockup-${Date.now()}.mp4`;
               
+              // NEW: Path-based URL (/api/export/download/file.mp4/MyProject.mp4)
+              // Browsers trust this structure more than query parameters for naming.
+              const downloadUrl = `/api/export/download/${encodeURIComponent(fileName)}/${encodeURIComponent(projectTitle)}`;
+
               const link = document.createElement('a');
               link.href = downloadUrl;
-              link.download = fileName || 'mockup.mp4';
+              link.download = projectTitle; 
+              link.target = '_blank'; // Opens in new tab to force independent context
+              link.style.display = 'none';
               document.body.appendChild(link);
               link.click();
-              document.body.removeChild(link);
+              
+              // Longer cleanup delay ensures Chrome Standard doesn't lose the context
+              setTimeout(() => {
+                if (link.parentNode) document.body.removeChild(link);
+              }, 20000); // 20s safety buffer
             }
             finishExport();
             return;
@@ -124,21 +134,17 @@ export const ControlPanel = () => {
 
   const handlePngExport = async () => {
     // 1. Determine if we can use the fast local capture
-    // If tilt is 0, local capture is almost pixel-perfect and much faster.
     const hasTilt = Math.abs(canvasSettings.mockupTilt.x) > 0.1 || Math.abs(canvasSettings.mockupTilt.y) > 0.1;
 
     if (!hasTilt) {
       const refs = getCanvasRefs();
       if (refs?.fullRef) {
         try {
-          setExportStatus('exporting'); // Show loading state on button
-          
-          // Instant local capture
+          setExportStatus('exporting'); 
           await exportToPng({ current: refs.fullRef }, {
             isTransparent: canvasSettings.backgroundPreset === 'none'
           });
-          
-          finishExport(); // Done
+          finishExport(); 
           return;
         } catch (err: any) {
           console.warn("Local capture failed, falling back to studio render...", err);
@@ -147,10 +153,10 @@ export const ControlPanel = () => {
       }
     }
 
-    // 2. High fidelity studio render (server-side)
-    // Required when 3D tilt/perspective/shaders need to be exactly preserved.
+    // 2. Fallback to studio render (server-side)
     return startExport('image');
   };
+
   const handleVideoExport = () => startExport('video');
 
   const isImageMode = mediaType === 'image' || mediaType === null;
@@ -186,7 +192,6 @@ export const ControlPanel = () => {
           </div>
         </div>
 
-        {/* Mode badge & Remove button */}
         {mediaFile && (
           <div className="flex items-center justify-between mt-3">
             <div className="flex gap-2">
@@ -236,7 +241,6 @@ export const ControlPanel = () => {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  {/* Mini phone icon */}
                   <div
                     className={`w-5 h-8 rounded-[3px] border-2 flex items-center justify-center ${
                       canvasSettings.mockupType === frame.id
@@ -268,7 +272,6 @@ export const ControlPanel = () => {
             Orientation
           </label>
           <div className="flex bg-studio-bg p-1 rounded-xl gap-1">
-            {/* Portrait */}
             <button
               onClick={() => updateCanvasSettings({ deviceOrientation: 'portrait' })}
               className={`flex-1 py-2.5 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
@@ -277,7 +280,6 @@ export const ControlPanel = () => {
                   : 'text-studio-muted hover:text-studio-text'
               }`}
             >
-              {/* Portrait phone icon */}
               <svg width="10" height="16" viewBox="0 0 10 16" fill="none">
                 <rect x="0.5" y="0.5" width="9" height="15" rx="2" stroke="currentColor" strokeWidth="1.2" />
                 <rect x="3" y="2" width="4" height="0.8" rx="0.4" fill="currentColor" opacity="0.5" />
@@ -285,7 +287,6 @@ export const ControlPanel = () => {
               <span className="text-[10px] font-bold">Portrait</span>
             </button>
 
-            {/* Landscape */}
             <button
               onClick={() => updateCanvasSettings({ deviceOrientation: 'landscape' })}
               className={`flex-1 py-2.5 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
@@ -294,7 +295,6 @@ export const ControlPanel = () => {
                   : 'text-studio-muted hover:text-studio-text'
               }`}
             >
-              {/* Landscape phone icon (rotated) */}
               <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
                 <rect x="0.5" y="0.5" width="15" height="9" rx="2" stroke="currentColor" strokeWidth="1.2" />
                 <rect x="2" y="3" width="0.8" height="4" rx="0.4" fill="currentColor" opacity="0.5" />
@@ -302,12 +302,6 @@ export const ControlPanel = () => {
               <span className="text-[10px] font-bold">Paysage</span>
             </button>
           </div>
-
-          {canvasSettings.deviceOrientation === 'landscape' && (
-            <p className="text-[9px] text-studio-muted bg-studio-bg/80 rounded-lg px-3 py-2">
-              Idéal pour les screenshots de jeux, apps horizontales ou le partage d'écran PC.
-            </p>
-          )}
         </section>
 
         {/* ── Layout Settings ───────────────────────────────────────── */}
@@ -340,16 +334,9 @@ export const ControlPanel = () => {
 
           {/* Fit mode */}
           <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <label className="text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">
-                Recadrage Écran
-              </label>
-              {canvasSettings.deviceOrientation === 'landscape' && (
-                <span className="text-[9px] text-studio-accent font-medium animate-pulse">
-                  Astuce : Utilisez "Étaler" pour remplir tout l'écran
-                </span>
-              )}
-            </div>
+            <label className="text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">
+              Recadrage Écran
+            </label>
             <div className="flex bg-studio-bg p-1 rounded-xl gap-1">
               {[
                 { id: 'contain', label: 'Adapter' },
@@ -430,7 +417,6 @@ export const ControlPanel = () => {
 
         {/* ── Background Selection ────────────────────────────────────── */}
         <section className="space-y-6 border-t border-studio-border pt-6">
-
           <div className="space-y-4">
             <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block">
               Style d'arrière-plan
@@ -506,41 +492,33 @@ export const ControlPanel = () => {
 
       {/* ── Export Footer ─────────────────────────────────────────── */}
       <div className="p-6 border-t border-studio-border bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.02)] space-y-3">
-
         {isImageMode ? (
-          // IMAGE MODE EXPORT
-          <>
-
-
-            {/* PNG Export button */}
-            <button
-              onClick={handlePngExport}
-              disabled={!mediaFile || exportStatus === 'exporting'}
-              className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all ${
-                mediaFile && exportStatus !== 'exporting'
-                  ? 'bg-studio-text text-white hover:bg-black shadow-lg shadow-black/10 hover:scale-[1.02] active:scale-[0.98]'
-                  : 'bg-studio-bg text-studio-muted cursor-not-allowed'
-              }`}
-            >
-              {exportStatus === 'exporting' ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
-                  </svg>
-                  Export en cours...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Exporter en PNG
-                </>
-              )}
-            </button>
-          </>
+          <button
+            onClick={handlePngExport}
+            disabled={!mediaFile || exportStatus === 'exporting'}
+            className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all ${
+              mediaFile && exportStatus !== 'exporting'
+                ? 'bg-studio-text text-white hover:bg-black shadow-lg shadow-black/10 hover:scale-[1.02] active:scale-[0.98]'
+                : 'bg-studio-bg text-studio-muted cursor-not-allowed'
+            }`}
+          >
+            {exportStatus === 'exporting' ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
+                </svg>
+                Export en cours...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Exporter en PNG
+              </>
+            )}
+          </button>
         ) : exportStatus === 'exporting' ? (
-          // VIDEO EXPORT IN PROGRESS
           <div className="space-y-3">
             <div className="flex justify-between items-center text-[10px] font-bold text-studio-muted uppercase tracking-wider">
               <span>Génération du rendu...</span>
@@ -554,7 +532,6 @@ export const ControlPanel = () => {
             </div>
           </div>
         ) : (
-          // VIDEO EXPORT BUTTON
           <button
             onClick={handleVideoExport}
             disabled={!mediaFile}
@@ -572,7 +549,6 @@ export const ControlPanel = () => {
         )}
       </div>
 
-      {/* Branding */}
       <div className="py-4 border-t border-studio-border bg-studio-bg/10 flex justify-center">
         <p className="text-[9px] text-studio-muted font-bold tracking-[0.3em] uppercase opacity-40">
           High-End Rendering Platform
