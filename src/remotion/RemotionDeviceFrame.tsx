@@ -1,6 +1,11 @@
 import React from 'react';
-import { AbsoluteFill, Img, Video, staticFile } from 'remotion';
-import { CanvasSettings, MOCKUPS } from '../features/mockups/definitions';
+import { AbsoluteFill, Img, Video, staticFile, useVideoConfig } from 'remotion';
+import {
+  CanvasSettings,
+  MOCKUPS,
+  getAbsoluteScreenStyle,
+  getLandscapeMockup
+} from '../features/mockups/definitions';
 import { BackgroundLayer } from '../features/mockups/BackgroundLayer';
 
 interface RemotionDeviceFrameProps {
@@ -14,18 +19,29 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
   mediaType,
   settings,
 }) => {
-  const mockup = MOCKUPS[settings.mockupType] || MOCKUPS['iphone-17-pro'];
+  const { width: compWidth, height: compHeight } = useVideoConfig();
+  
   const isLandscape = settings.deviceOrientation === 'landscape';
+  const baseMockup = MOCKUPS[settings.mockupType] || MOCKUPS['iphone-17-pro-silver'];
+  
+  // Use landscape helper if needed
+  const mockup = isLandscape ? getLandscapeMockup(baseMockup) : baseMockup;
 
-  const screen = mockup.screenConfig || {
-    top: '2.2926%',
-    left: '5.3571%',
-    width: '89.7321%',
-    height: '95.4148%',
-  };
+  const bodyUrl = staticFile(`assets/mockups/${baseMockup.frameId}/body.png`);
+  const placeholderUrl = staticFile(`assets/mockups/${baseMockup.frameId}/screen.webp`);
+  
+  const screenStyle = getAbsoluteScreenStyle(mockup);
 
-  const bodyUrl = staticFile(`assets/mockups/${mockup.frameId}/body.png`);
-  const maskUrl = staticFile(`assets/mockups/${mockup.frameId}/display.svg`);
+  // Calculate scale based on Remotion composition dimensions and padding
+  const paddingPx = (settings.padding || 0) * 2;
+  const availableHeight = compHeight - paddingPx;
+  const availableWidth = compWidth - paddingPx;
+
+  // Use orientation-specific scale calculation
+  const scale = isLandscape
+    ? Math.min(availableWidth / mockup.width, availableHeight / mockup.height)
+    : availableHeight / mockup.height;
+
   const resolvedMediaUrl = mediaUrl
     ? mediaUrl.startsWith('/')
       ? staticFile(mediaUrl.slice(1))
@@ -33,104 +49,86 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
     : null;
 
   const perspectiveTransform = `perspective(2000px) rotateX(${settings.mockupTilt.x}deg) rotateY(${settings.mockupTilt.y}deg)`;
+  const shadowFilter = `drop-shadow(0 ${30 * settings.shadowIntensity}px ${60 * settings.shadowIntensity}px rgba(0,0,0,${0.2 * settings.shadowIntensity}))`;
 
-  const parsedScreenWidth = parseFloat(screen.width) / 100;
-  const parsedScreenHeight = parseFloat(screen.height) / 100;
-  const screenPxWidth = mockup.width * parsedScreenWidth;
-  const screenPxHeight = mockup.height * parsedScreenHeight;
-
-  // Correcting media rotation for landscape mode
-  // The phone asset is portrait. In landscape mode, we rotate the whole phone -90deg.
-  // To have the media appear upright relative to the landscape-held phone,
-  // we rotate the media +90deg inside its portrait container and perfectly scale it.
-  const isMac = mockup.id.includes('macbook');
-  const finalRadius = isMac ? 0 : (isLandscape ? 40 : 20);
-
-  const mediaStyle: React.CSSProperties = isLandscape ? {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: `${(screenPxHeight / screenPxWidth) * 100}%`,
-    height: `${(screenPxWidth / screenPxHeight) * 100}%`,
-    transform: 'translate(-50%, -50%) rotate(90deg)',
-    objectFit: settings.videoFit as any,
-    maxWidth: 'none',
-    maxHeight: 'none',
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  } : {
-    width: '100%',
-    height: '100%',
-    objectFit: settings.videoFit as any,
-    maxWidth: 'none',
-    maxHeight: 'none',
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  };
+  const { borderRadius: r } = mockup.viewport;
 
   const deviceLayers = (
-    <>
+    <div 
+      style={{ 
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: mockup.width, 
+        height: mockup.height,
+        transform: `translate(-50%, -50%) scale(${scale})`,
+        transformOrigin: 'center center'
+      }}
+    >
+      {/* Layer 1: Display Content (CSS Rounding for perfect Figma alignment) */}
       <div
         style={{
+          ...screenStyle,
           position: 'absolute',
-          top: screen.top,
-          left: screen.left,
-          width: screen.width,
-          height: screen.height,
+          borderRadius: r,
           backgroundColor: 'black',
-          borderRadius: finalRadius,
-          zIndex: 0,
-        }}
-      />
-
-      <div
-        style={{
-          position: 'absolute',
-          top: screen.top,
-          left: screen.left,
-          width: screen.width,
-          height: screen.height,
           overflow: 'hidden',
-          backgroundColor: 'black',
-          borderRadius: finalRadius,
-          zIndex: isMac ? 30 : 10,
+          zIndex: 10,
+          border: '2px solid #000',
+          boxSizing: 'border-box',
+          transform: 'translateZ(0)',
         }}
       >
-        {resolvedMediaUrl &&
-          (mediaType === 'video' ? (
+        {resolvedMediaUrl ? (
+          mediaType === 'video' ? (
             <Video
-              key={`video-${settings.videoFit}`}
               src={resolvedMediaUrl}
-              style={mediaStyle}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: settings.videoFit as any,
+              }}
             />
           ) : (
             <Img
-              key={`img-${settings.videoFit}`}
               src={resolvedMediaUrl}
               style={{
-                ...mediaStyle,
-                borderRadius: finalRadius,
+                width: '100%',
+                height: '100%',
+                objectFit: settings.videoFit as any,
               }}
               crossOrigin="anonymous"
             />
-          ))}
+          )
+        ) : (
+          <Img
+            src={placeholderUrl}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        )}
       </div>
 
+      {/* Layer 2: Chassis (Overlays the content edges) */}
       <Img
         src={bodyUrl}
         style={{
           position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 20,
-          objectFit: 'contain',
+          top: '50%',
+          left: '50%',
+          width: baseMockup.width,
+          height: baseMockup.height,
+          transform: `translate(-50%, -50%) ${isLandscape ? 'rotate(-90deg)' : ''}`,
+          zIndex: 50,
+          pointerEvents: 'none',
         }}
         crossOrigin="anonymous"
       />
-    </>
+    </div>
   );
-
-  const shadowFilter = `drop-shadow(0 ${30 * settings.shadowIntensity}px ${60 * settings.shadowIntensity}px rgba(0,0,0,${0.2 * settings.shadowIntensity}))`;
-  const innerWidthPercent = (mockup.width / mockup.height) * 100;
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'transparent' }}>
@@ -146,47 +144,18 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
             width: '100%',
           }}
         >
-          {isLandscape ? (
-            <div
-              style={{
-                position: 'relative',
-                height: '100%',
-                width: 'auto',
-                aspectRatio: `${mockup.height} / ${mockup.width}`,
-                filter: shadowFilter,
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  width: `${innerWidthPercent}%`,
-                  height: 'auto',
-                  aspectRatio: `${mockup.width} / ${mockup.height}`,
-                  top: '50%',
-                  left: '50%',
-                  transform: `translate(-50%, -50%) ${perspectiveTransform} rotate(-90deg)`,
-                  transformOrigin: 'center center',
-                  transformStyle: 'preserve-3d',
-                }}
-              >
-                {deviceLayers}
-              </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                position: 'relative',
-                height: '100%',
-                width: 'auto',
-                aspectRatio: `${mockup.width} / ${mockup.height}`,
-                transform: perspectiveTransform,
-                filter: shadowFilter,
-                transformStyle: 'preserve-3d',
-              }}
-            >
-              {deviceLayers}
-            </div>
-          )}
+          <div
+            style={{
+              position: 'relative',
+              height: mockup.height * scale,
+              width: mockup.width * scale,
+              transform: perspectiveTransform,
+              filter: shadowFilter,
+              transformStyle: 'preserve-3d',
+            }}
+          >
+            {deviceLayers}
+          </div>
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

@@ -9,8 +9,9 @@ import { exportToPng } from './useImageExport';
 
 // ── Available Mockup Frames ────────────────────────────────────────────────
 const AVAILABLE_FRAMES = [
-  { id: 'iphone-17-pro', name: 'iPhone 17 Pro', category: 'Mobile', available: true },
-  { id: 'macbook-pro-16', name: 'MacBook Pro 16', category: 'Desktop', available: true },
+  { id: 'iphone-17-pro-silver', name: 'iPhone 17 Pro Silver', category: 'Mobile', available: true },
+  { id: 'iphone-17-pro-orange', name: 'iPhone 17 Pro Cosmic Orange', category: 'Mobile', available: true },
+  { id: 'iphone-17-pro-deepblue', name: 'iPhone 17 Pro Deep Blue', category: 'Mobile', available: true },
 ];
 
 export const ControlPanel = () => {
@@ -29,10 +30,18 @@ export const ControlPanel = () => {
   } = useStudioStore();
 
   const [isPngExporting, setIsPngExporting] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) setMediaFile(file);
+  };
+
+  const handleRemoveMedia = () => {
+    setMediaFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // ── PNG Export (image mode) ────────────────────────────────────────
@@ -149,6 +158,7 @@ export const ControlPanel = () => {
         </label>
         <div className="relative group overflow-hidden">
           <input
+            ref={fileInputRef}
             type="file"
             accept="video/*,image/*"
             onChange={handleFileChange}
@@ -168,18 +178,30 @@ export const ControlPanel = () => {
           </div>
         </div>
 
-        {/* Mode badge */}
+        {/* Mode badge & Remove button */}
         {mediaFile && (
-          <div className="flex gap-2 mt-3">
-            <span
-              className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                isVideoMode
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'bg-blue-100 text-blue-700'
-              }`}
+          <div className="flex items-center justify-between mt-3">
+            <div className="flex gap-2">
+              <span
+                className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                  isVideoMode
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}
+              >
+                {isVideoMode ? '⚡ Mode Vidéo' : '✦ Mode Image'}
+              </span>
+            </div>
+            
+            <button
+              onClick={handleRemoveMedia}
+              className="text-[10px] font-bold text-red-500 hover:text-red-600 transition-colors flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-100"
             >
-              {isVideoMode ? '⚡ Mode Vidéo' : '✦ Mode Image'}
-            </span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+              Supprimer
+            </button>
           </div>
         )}
       </div>
