@@ -17,15 +17,13 @@ export interface MockupDefinition {
     borderRadius: number;
   };
   frameId: string;
-  screenConfig?: {
-    top: string;
-    left: string;
-    width: string;
-    height: string;
-  };
 }
 
-export type MockupType = 'iphone-17-pro' | 'macbook-pro-16';
+export type MockupType =
+  | 'iphone-17-pro-silver'
+  | 'iphone-17-pro-orange'
+  | 'iphone-17-pro-deepblue';
+
 export type DeviceOrientation = 'portrait' | 'landscape';
 
 export type BackgroundShape = { color: string; size: number; x: number; y: number; blur: number };
@@ -59,47 +57,85 @@ export interface CanvasSettings {
   baseUrl?: string;
 }
 
-export const MOCKUPS: Record<string, any> = {
-  'iphone-17-pro': {
-    id: 'iphone-17-pro',
-    name: 'iPhone 17 Pro',
+/**
+ * Computes the screen positioning styles based on viewport coordinates.
+ */
+export function getScreenStyle(mockup: MockupDefinition): {
+  top: string;
+  left: string;
+  width: string;
+  height: string;
+} {
+  return {
+    top: `${(mockup.viewport.y / mockup.height) * 100}%`,
+    left: `${(mockup.viewport.x / mockup.width) * 100}%`,
+    width: `${(mockup.viewport.width / mockup.width) * 100}%`,
+    height: `${(mockup.viewport.height / mockup.height) * 100}%`,
+  };
+}
+
+/**
+ * Returns fixed pixel values for precision rendering.
+ */
+export function getAbsoluteScreenStyle(mockup: MockupDefinition): {
+  top: string;
+  left: string;
+  width: string;
+  height: string;
+} {
+  return {
+    top: `${mockup.viewport.y}px`,
+    left: `${mockup.viewport.x}px`,
+    width: `${mockup.viewport.width}px`,
+    height: `${mockup.viewport.height}px`,
+  };
+}
+
+
+/**
+ * Helper to return a mockup especification for landscape mode.
+ */
+export function getLandscapeMockup(mockup: MockupDefinition): MockupDefinition {
+  return {
+    ...mockup,
+    width: mockup.height,
+    height: mockup.width,
+    viewport: {
+      x: mockup.viewport.y,
+      y: mockup.viewport.x,
+      width: mockup.viewport.height,
+      height: mockup.viewport.width,
+      borderRadius: mockup.viewport.borderRadius,
+    },
+  };
+}
+
+export const MOCKUPS: Record<MockupType, MockupDefinition> = {
+  'iphone-17-pro-silver': {
+    id: 'iphone-17-pro-silver',
+    name: 'iPhone 17 Pro Silver',
     type: 'mobile',
     width: 448,
     height: 916,
-    viewport: {
-      x: 19,
-      y: 21,
-      width: 402,
-      height: 874,
-      borderRadius: 57,
-    },
-    screenConfig: {
-      top: '2.17%',     // Slightly expanded to seal edges
-      left: '5.20%',    // Slightly expanded to seal edges
-      width: '90.1%',   // Slightly expanded to seal edges
-      height: '95.7%'   // Slightly expanded to seal edges
-    },
-    frameId: 'iphone17',
+    viewport: { x: 22, y: 20, width: 404, height: 876, borderRadius: 57 },
+    frameId: 'iphone17-silver',
   },
-  'macbook-pro-16': {
-    id: 'macbook-pro-16',
-    name: 'MacBook Pro 16',
-    type: 'desktop',
-    width: 2401,
-    height: 1376,
-    viewport: {
-      x: 246,
-      y: 56,
-      width: 1908,
-      height: 1190,
-      borderRadius: 0,
-    },
-    screenConfig: {
-      top: '4.07%',
-      left: '10.50%',
-      width: '79.47%',
-      height: '86.48%'
-    },
-    frameId: 'macbook16',
+  'iphone-17-pro-orange': {
+    id: 'iphone-17-pro-orange',
+    name: 'iPhone 17 Pro Cosmic Orange',
+    type: 'mobile',
+    width: 448,
+    height: 916,
+    viewport: { x: 22, y: 20, width: 404, height: 876, borderRadius: 57 },
+    frameId: 'iphone17-orange',
+  },
+  'iphone-17-pro-deepblue': {
+    id: 'iphone-17-pro-deepblue',
+    name: 'iPhone 17 Pro Deep Blue',
+    type: 'mobile',
+    width: 448,
+    height: 916,
+    viewport: { x: 22, y: 20, width: 404, height: 876, borderRadius: 57 },
+    frameId: 'iphone17-deepblue',
   },
 };
