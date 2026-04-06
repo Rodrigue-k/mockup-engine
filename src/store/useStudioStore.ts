@@ -45,7 +45,7 @@ const DEFAULT_SETTINGS: CanvasSettings = {
   shadowIntensity: 0.1,
   shadowSpread: 40,
   videoFit: 'contain',
-  mockupType: 'iphone-17-pro',
+  mockupType: 'iphone-17-pro-silver',
   mockupTilt: { x: 0, y: 0, z: 0 },
   deviceOrientation: 'portrait',
   exportBackground: true,
