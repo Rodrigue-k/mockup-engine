@@ -8,6 +8,7 @@ import { PREMIUM_BACKGROUNDS } from '@/config/studio-constants';
 interface ImageMockupCanvasProps {
   mediaUrl: string | null;
   settings: CanvasSettings;
+  isEmpty?: boolean;
   // fullRef exposed via forwardRef for background+device capture
 }
 
@@ -20,7 +21,7 @@ interface ImageMockupCanvasProps {
 export const ImageMockupCanvas = forwardRef<
   { fullRef: HTMLDivElement | null; deviceRef: HTMLDivElement | null },
   ImageMockupCanvasProps
->(function ImageMockupCanvas({ mediaUrl, settings }, ref) {
+>(function ImageMockupCanvas({ mediaUrl, settings, isEmpty = false }, ref) {
   const fullRef = React.useRef<HTMLDivElement>(null);
   const deviceRef = React.useRef<HTMLDivElement>(null);
 
@@ -42,13 +43,13 @@ export const ImageMockupCanvas = forwardRef<
         return { background: value };
       case 'pattern_dots':
         return {
-          backgroundColor: '#F8FAFC',
-          backgroundImage: `radial-gradient(${value} 2px, transparent 2px)`,
-          backgroundSize: '30px 30px',
+          backgroundColor: '#161616',
+          backgroundImage: `radial-gradient(${value} 1px, transparent 1px)`,
+          backgroundSize: '24px 24px',
         };
       case 'pattern_grid':
         return {
-          backgroundColor: '#F8FAFC',
+          backgroundColor: '#161616',
           backgroundImage: `linear-gradient(to right, ${value} 1px, transparent 1px), linear-gradient(to bottom, ${value} 1px, transparent 1px)`,
           backgroundSize: '40px 40px',
         };
@@ -57,8 +58,8 @@ export const ImageMockupCanvas = forwardRef<
         return {
           backgroundColor: '#ffffff',
           backgroundImage: 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)',
-          backgroundSize: '20px 20px',
-          backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
+          backgroundSize: '10px 10px',
+          backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
         };
     }
   };
@@ -81,6 +82,7 @@ export const ImageMockupCanvas = forwardRef<
             mediaUrl={mediaUrl}
             mediaType="image"
             settings={settings}
+            isEmpty={isEmpty}
           />
         </div>
       </div>

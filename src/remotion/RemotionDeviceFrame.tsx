@@ -12,12 +12,14 @@ interface RemotionDeviceFrameProps {
   mediaUrl: string | null;
   mediaType: 'video' | 'image' | null;
   settings: CanvasSettings;
+  isEmpty?: boolean;
 }
 
 export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
   mediaUrl,
   mediaType,
   settings,
+  isEmpty = false,
 }) => {
   const { width: compWidth, height: compHeight } = useVideoConfig();
   
@@ -119,6 +121,25 @@ export const RemotionDeviceFrame: React.FC<RemotionDeviceFrameProps> = ({
               objectFit: 'cover',
             }}
           />
+        )}
+
+        {isEmpty && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 5,
+            pointerEvents: 'none',
+            background: '#2C2C2E'
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+            </svg>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '6px' }}>Drop media</span>
+          </div>
         )}
       </div>
 

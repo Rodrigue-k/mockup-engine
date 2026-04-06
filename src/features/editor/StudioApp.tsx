@@ -1,56 +1,52 @@
 'use client';
 
 import React from 'react';
-import { useStudioStore } from '@/store/useStudioStore';
 import { PreviewCanvas } from './PreviewCanvas';
 import { ControlPanel } from './ControlPanel';
+import { ExportButton } from './ExportButton';
+
 export default function StudioApp() {
-  const { isSidebarOpen } = useStudioStore();
-
   return (
-    <main className="flex h-screen overflow-hidden bg-[#f6f5f3] selection:bg-studio-accent/20">
-      {/* Central Canvas Area */}
-      <div className="relative flex-1 flex items-center justify-center p-8 transition-colors duration-700 ease-in-out overflow-hidden">
-        {/* Subtle Surface Texture Overlay */}
-        <div className="absolute inset-0 pointer-events-none opacity-[0.03] mix-blend-overlay" style={{backgroundImage: 'radial-gradient(#111827 0.5px, transparent 0.5px)', backgroundSize: '15px 15px'}} />
-        
-        {/* Title Overlay (Elegance Factor) */}
-        <div className="absolute top-[8%] left-1/2 -translate-x-1/2 text-center pointer-events-none select-none z-0">
-           <h2 className="text-[140px] font-serif text-studio-text/5 tracking-tighter mix-blend-multiply italic">
-             Studio
-           </h2>
-        </div>
-
+    <div className="relative w-screen h-screen overflow-hidden" style={{ background: '#0C0C0C' }}>
+      <main className="w-full h-full flex items-center justify-center" style={{ paddingRight: '300px' }}>
         <PreviewCanvas />
-      </div>
+      </main>
 
-      {/* Right Sidebar - High-density control */}
-      <aside 
-        className={`w-[340px] border-l border-studio-border bg-studio-card transition-all duration-500 ease-in-out shadow-[-20px_0_50px_rgba(0,0,0,0.03)] z-20 ${
-          isSidebarOpen ? 'mr-0' : '-mr-[340px]'
-        }`}
+      <div
+        className="custom-scrollbar"
+        style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          bottom: '16px',
+          width: '268px',
+          background: 'rgba(18, 18, 18, 0.85)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: '16px',
+          border: '0.5px solid rgba(255,255,255,0.08)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          zIndex: 50,
+        }}
       >
-        <div className="flex flex-col h-full">
-          {/* Logo/Brand Section in Sidebar */}
-          <div className="px-8 py-6 border-b border-studio-border">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-studio-accent flex items-center justify-center shadow-lg shadow-studio-accent/20">
-                <div className="w-3 h-3 rounded-full border-2 border-white" />
-              </div>
-              <div>
-                <h1 className="text-xs font-black tracking-widest text-studio-text uppercase">
-                  Universal <span className="text-studio-accent">Engine</span>
-                </h1>
-                <p className="text-[8px] font-bold text-studio-muted uppercase tracking-[0.2em] -mt-0.5">V1.0 High-End Render</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-hidden">
-            <ControlPanel />
-          </div>
+        <header style={{ padding: '16px 20px', borderBottom: '0.5px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <svg width="16" height="22" viewBox="0 0 16 22" fill="none">
+            <rect x="0.5" y="0.5" width="15" height="21" rx="2.5" stroke="rgba(240,240,240,0.2)" strokeWidth="1"/>
+            <rect x="3" y="4" width="10" height="14" rx="1.5" fill="#D0021B"/>
+          </svg>
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: '18px', letterSpacing: '0.12em', color: '#F0F0F0' }}>FACET</span>
+        </header>
+
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '8px' }} className="custom-scrollbar">
+          <ControlPanel />
         </div>
-      </aside>
-    </main>
+
+        <footer style={{ padding: '12px 16px', borderTop: '0.5px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+          <ExportButton />
+        </footer>
+      </div>
+    </div>
   );
 }

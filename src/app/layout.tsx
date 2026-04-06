@@ -29,7 +29,12 @@ export default function RootLayout({
       lang="fr"
       className={`${inter.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans selection:bg-studio-accent/20">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" crossOrigin="anonymous" />
+      </head>
+      <body className="min-h-full flex flex-col font-sans selection:bg-f-accent/20">
         {children}
       </body>
     </html>

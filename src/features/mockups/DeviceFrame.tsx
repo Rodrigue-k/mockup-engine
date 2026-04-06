@@ -12,6 +12,7 @@ interface DeviceFrameProps {
   mediaType: 'video' | 'image' | null;
   settings: CanvasSettings;
   className?: string;
+  isEmpty?: boolean;
 }
 
 export const DeviceFrame = React.forwardRef<HTMLDivElement, DeviceFrameProps>(({
@@ -19,6 +20,7 @@ export const DeviceFrame = React.forwardRef<HTMLDivElement, DeviceFrameProps>(({
   mediaType,
   settings,
   className = '',
+  isEmpty = false,
 }, ref) => {
   const isLandscape = settings.deviceOrientation === 'landscape';
   const baseMockup = MOCKUPS[settings.mockupType] || MOCKUPS['iphone-17-pro-silver'];
@@ -132,6 +134,16 @@ export const DeviceFrame = React.forwardRef<HTMLDivElement, DeviceFrameProps>(({
               className="w-full h-full object-cover block"
               crossOrigin={placeholderUrl.startsWith('blob:') ? undefined : "anonymous"}
             />
+        )}
+
+        {isEmpty && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-5 pointer-events-none"
+            style={{ background: '#2C2C2E' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '6px' }}>Drop media</span>
+          </div>
         )}
       </div>
 

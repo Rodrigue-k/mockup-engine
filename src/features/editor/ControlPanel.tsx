@@ -1,558 +1,204 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { PREMIUM_BACKGROUNDS, AspectRatio } from '@/config/studio-constants';
-import { MOCKUPS } from '@/features/mockups/definitions';
+import { MOCKUPS, MockupType } from '@/features/mockups/definitions';
 import { getCanvasRefs } from './PreviewCanvas';
 import { exportToPng } from './useImageExport';
 
-// ── Available Mockup Frames ────────────────────────────────────────────────
-const AVAILABLE_FRAMES = [
-  { id: 'iphone-17-pro-silver', name: 'iPhone 17 Pro Silver', category: 'Mobile', available: true },
-  { id: 'iphone-17-pro-orange', name: 'iPhone 17 Pro Cosmic Orange', category: 'Mobile', available: true },
-  { id: 'iphone-17-pro-deepblue', name: 'iPhone 17 Pro Deep Blue', category: 'Mobile', available: true },
-];
+
+const SectionLabel = ({ label }: { label: string }) => (
+  <span className="text-[11px] text-f-secondary mb-2 block font-medium">{label}</span>
+);
+
+const Slider = ({ value, min, max, onChange, unit = '' }: any) => (
+  <div className="flex items-center gap-3 h-6">
+    <input
+      type="range"
+      min={min}
+      max={max}
+      value={value}
+      onChange={(e) => onChange(parseInt(e.target.value))}
+      className="flex-1 appearance-none cursor-grab active:cursor-grabbing"
+    />
+    <span className="text-f-secondary text-[10px] font-mono min-w-[32px] text-right">
+      {value}{unit}
+    </span>
+  </div>
+);
+
+const ButtonGroup = ({ options, activeValue, onSelect }: any) => (
+  <div className="flex gap-1 bg-f-base/50 p-0.5 rounded">
+    {options.map((opt: any) => (
+      <button
+        key={opt.id}
+        onClick={() => onSelect(opt.id)}
+        className={`flex-1 py-1.5 text-[10px] font-bold rounded transition-all ${
+          activeValue === opt.id
+            ? 'bg-f-elevated text-f-primary border border-f-border'
+            : 'text-f-secondary hover:text-f-primary hover:bg-white/5'
+        }`}
+      >
+        {opt.label}
+      </button>
+    ))}
+  </div>
+);
 
 export const ControlPanel = () => {
   const {
     canvasSettings,
     updateCanvasSettings,
-    setMediaFile,
-    mediaFile,
-    mediaType,
-    exportStatus,
-    exportProgress,
-    setExportStatus,
-    updateExportProgress,
-    finishExport,
-    exportError,
   } = useStudioStore();
 
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setMediaFile(file);
-  };
-
-  const handleRemoveMedia = () => {
-    setMediaFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const getLabel = (type: MockupType) => {
+    switch(type) {
+      case 'iphone-17-pro-silver': return 'Silver';
+      case 'iphone-17-pro-orange': return 'Orange';
+      case 'iphone-17-pro-deepblue': return 'Deep Blue';
+      default: return '';
     }
   };
 
-  // ── Unified Export Function (Server Side) ────────────────────────
-  const startExport = async (type: 'image' | 'video') => {
-    if (!mediaFile) return;
 
-    try {
-      setExportStatus('exporting');
-      updateExportProgress(0);
-
-      const formData = new FormData();
-      formData.append('file', mediaFile);
-      formData.append('exportType', type);
-      formData.append('settings', JSON.stringify(canvasSettings));
-
-      const response = await fetch('/api/export', { method: 'POST', body: formData });
-      const startData = await response.json();
-
-      if (!response.ok || !startData.success) {
-        throw new Error(startData.error || "Erreur lors de l'initialisation de l'export.");
-      }
-
-      const jobId = startData.jobId;
-      let retryCount = 0;
-      const MAX_RETRIES = 5;
-
-      const poll = async () => {
-        try {
-          const statusRes = await fetch(`/api/export/status?id=${jobId}`);
-          const statusData = await statusRes.json();
-
-          if (!statusRes.ok || !statusData.success) {
-            throw new Error(statusData.error || "Erreur lors du suivi de l'export.");
-          }
-
-          retryCount = 0;
-          updateExportProgress(statusData.progress);
-
-          if (statusData.status === 'completed') {
-            if (statusData.url) {
-              const fileName = statusData.url.split('/').pop()!;
-              const projectTitle = `mockup-${Date.now()}.mp4`;
-              
-              // NEW: Path-based URL (/api/export/download/file.mp4/MyProject.mp4)
-              // Browsers trust this structure more than query parameters for naming.
-              const downloadUrl = `/api/export/download/${encodeURIComponent(fileName)}/${encodeURIComponent(projectTitle)}`;
-
-              const link = document.createElement('a');
-              link.href = downloadUrl;
-              link.download = projectTitle; 
-              link.target = '_blank'; // Opens in new tab to force independent context
-              link.style.display = 'none';
-              document.body.appendChild(link);
-              link.click();
-              
-              // Longer cleanup delay ensures Chrome Standard doesn't lose the context
-              setTimeout(() => {
-                if (link.parentNode) document.body.removeChild(link);
-              }, 20000); // 20s safety buffer
-            }
-            finishExport();
-            return;
-          }
-
-          if (statusData.status === 'error') {
-            throw new Error(statusData.error || 'Le rendu a échoué sur le serveur.');
-          }
-
-          setTimeout(poll, 2000);
-        } catch (err: any) {
-          if (
-            (err instanceof TypeError && err.message === 'Failed to fetch') ||
-            err.name === 'AbortError'
-          ) {
-            if (retryCount < MAX_RETRIES) {
-              retryCount++;
-              setTimeout(poll, 5000);
-              return;
-            }
-          }
-          exportError(err.message);
-        }
-      };
-
-      poll();
-    } catch (err: any) {
-      exportError(err.message);
-      alert(`Erreur d'export: ${err.message}`);
-    }
-  };
-
-  const handlePngExport = async () => {
-    // 1. Determine if we can use the fast local capture
-    const hasTilt = Math.abs(canvasSettings.mockupTilt.x) > 0.1 || Math.abs(canvasSettings.mockupTilt.y) > 0.1;
-
-    if (!hasTilt) {
-      const refs = getCanvasRefs();
-      if (refs?.fullRef) {
-        try {
-          setExportStatus('exporting'); 
-          await exportToPng({ current: refs.fullRef }, {
-            isTransparent: canvasSettings.backgroundPreset === 'none'
-          });
-          finishExport(); 
-          return;
-        } catch (err: any) {
-          console.warn("Local capture failed, falling back to studio render...", err);
-          setExportStatus('idle'); 
-        }
-      }
-    }
-
-    // 2. Fallback to studio render (server-side)
-    return startExport('image');
-  };
-
-  const handleVideoExport = () => startExport('video');
-
-  const isImageMode = mediaType === 'image' || mediaType === null;
-  const isVideoMode = mediaType === 'video';
 
   return (
-    <div className="flex flex-col h-full bg-studio-card font-sans">
+    <div className="flex flex-col h-full bg-transparent">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {/* Section 1 — Device */}
+        <section className="px-5 py-4 space-y-4">
+          <div>
+            <SectionLabel label="Model" />
+            <div className="flex gap-3">
+              {(['iphone-17-pro-silver', 'iphone-17-pro-orange', 'iphone-17-pro-deepblue'] as MockupType[]).map((type) => {
+                const m = MOCKUPS[type];
+                const isActive = canvasSettings.mockupType === type;
+                return (
+                  <div key={type} className="flex flex-col items-center">
+                    <button
+                      onClick={() => updateCanvasSettings({ mockupType: type })}
+                      className={`relative rounded-lg overflow-hidden transition-all ${isActive ? 'ring-2 ring-f-accent' : 'opacity-50 hover:opacity-80'}`}
+                      style={{ width: '64px', height: '80px', background: '#0C0C0C' }}
+                    >
+                      <img
+                        src={`/assets/mockups/${m.frameId}/body.png`}
+                        alt={m.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    </button>
+                    <span className="text-[10px] text-f-secondary text-center mt-1 block">
+                      {getLabel(type)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <SectionLabel label="Orientation" />
+            <ButtonGroup
+              options={[{ id: 'portrait', label: 'PORTRAIT' }, { id: 'landscape', label: 'LANDSCAPE' }]}
+              activeValue={canvasSettings.deviceOrientation}
+              onSelect={(val: any) => updateCanvasSettings({ deviceOrientation: val })}
+            />
+          </div>
+        </section>
 
-      {/* ── Media Import ──────────────────────────────────────────── */}
-      <div className="p-6 border-b border-studio-border bg-studio-bg/50">
-        <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block mb-4">
-          Média Source
-        </label>
-        <div className="relative group overflow-hidden">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*,image/*"
-            onChange={handleFileChange}
-            className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"
+        {/* Section 2 — Canvas */}
+        <section className="px-5 py-4 border-t border-f-border space-y-4">
+          <div>
+            <SectionLabel label="Format" />
+            <ButtonGroup
+              options={[
+                { id: '9:16', label: '9:16' },
+                { id: '16:9', label: '16:9' },
+                { id: '1:1', label: '1:1' },
+                { id: '4:5', label: '4:5' }
+              ]}
+              activeValue={canvasSettings.format}
+              onSelect={(val: any) => updateCanvasSettings({ format: val })}
+            />
+          </div>
+          <div>
+            <SectionLabel label="Padding" />
+            <Slider
+              value={canvasSettings.padding}
+              min={0}
+              max={100}
+              onChange={(val: number) => updateCanvasSettings({ padding: val })}
+            />
+          </div>
+        </section>
+
+        {/* Section 3 — Screen */}
+        <section className="px-5 py-4 border-t border-f-border space-y-4">
+          <div>
+            <SectionLabel label="Fit Mode" />
+            <ButtonGroup
+              options={[
+                { id: 'contain', label: 'CONTAIN' },
+                { id: 'cover', label: 'COVER' },
+                { id: 'fill', label: 'FILL' }
+              ]}
+              activeValue={canvasSettings.videoFit}
+              onSelect={(val: any) => updateCanvasSettings({ videoFit: val })}
+            />
+          </div>
+          <div>
+            <SectionLabel label="Tilt" />
+            <Slider
+              value={canvasSettings.mockupTilt.y}
+              min={-15}
+              max={15}
+              unit="°"
+              onChange={(val: number) => updateCanvasSettings({ mockupTilt: { ...canvasSettings.mockupTilt, y: val } })}
+            />
+          </div>
+        </section>
+
+        {/* Section 4 — Shadow */}
+        <section className="px-5 py-4 border-t border-f-border">
+          <SectionLabel label="Shadow Intensity" />
+          <Slider
+            value={Math.round(canvasSettings.shadowIntensity * 100)}
+            min={0}
+            max={100}
+            unit="%"
+            onChange={(val: number) => updateCanvasSettings({ shadowIntensity: val / 100 })}
           />
-          <div
-            className={`p-5 rounded-2xl border-2 border-dashed border-studio-border text-center transition-all group-hover:border-studio-accent group-hover:bg-studio-accent/[0.02] ${
-              mediaFile ? 'bg-studio-accent/5 border-studio-accent' : 'bg-studio-card'
-            }`}
-          >
-            <div className="text-xs font-semibold text-studio-text mb-1 truncate">
-              {mediaFile ? mediaFile.name : 'Importer un Média'}
-            </div>
-            <p className="text-[10px] text-studio-muted">
-              {isVideoMode ? '🎬 Vidéo' : isImageMode && mediaFile ? '🖼️ Image' : 'MP4, PNG, JPG (max 100MB)'}
-            </p>
-          </div>
-        </div>
+        </section>
 
-        {mediaFile && (
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex gap-2">
-              <span
-                className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                  isVideoMode
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}
-              >
-                {isVideoMode ? '⚡ Mode Vidéo' : '✦ Mode Image'}
-              </span>
-            </div>
-            
-            <button
-              onClick={handleRemoveMedia}
-              className="text-[10px] font-bold text-red-500 hover:text-red-600 transition-colors flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-100"
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-              Supprimer
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-6 space-y-8">
-
-        {/* ── Frame Selection ──────────────────────────────────────── */}
-        <section className="space-y-4">
-          <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block">
-            Frame / Appareil
-          </label>
-          <div className="space-y-2">
-            {AVAILABLE_FRAMES.map((frame) => (
+        {/* Section 5 — Background */}
+        <section className="px-5 py-4 border-t border-f-border">
+          <SectionLabel label="Background" />
+          <div className="grid grid-cols-5 gap-2">
+            {Object.entries(PREMIUM_BACKGROUNDS).map(([key, config]) => (
               <button
-                key={frame.id}
-                disabled={!frame.available}
-                onClick={() => frame.available && updateCanvasSettings({ mockupType: frame.id as any })}
-                className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-                  canvasSettings.mockupType === frame.id
-                    ? 'border-studio-accent bg-studio-accent/5 text-studio-accent shadow-sm ring-1 ring-studio-accent/10'
-                    : frame.available
-                    ? 'border-studio-border bg-studio-card hover:border-studio-muted/30 text-studio-text'
-                    : 'border-studio-border/50 bg-studio-bg/50 text-studio-muted/40 cursor-not-allowed'
+                key={key}
+                onClick={() =>
+                  updateCanvasSettings({
+                    bgType: config.type as any,
+                    bgValue: config.value,
+                    backgroundPreset: key,
+                  })
+                }
+                className={`aspect-square rounded-sm border transition-all ${
+                  canvasSettings.backgroundPreset === key
+                    ? 'border-f-accent ring-2 ring-f-accent/20'
+                    : 'border-f-border hover:border-f-secondary/50'
                 }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-5 h-8 rounded-[3px] border-2 flex items-center justify-center ${
-                      canvasSettings.mockupType === frame.id
-                        ? 'border-studio-accent'
-                        : 'border-current opacity-50'
-                    }`}
-                  >
-                    <div className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-xs font-semibold">{frame.name}</div>
-                    <div className="text-[9px] opacity-60 uppercase tracking-wider">{frame.category}</div>
-                  </div>
-                </div>
-                {canvasSettings.mockupType === frame.id && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-studio-accent" />
-                )}
-                {!frame.available && (
-                  <span className="text-[8px] uppercase tracking-wider opacity-40">Bientôt</span>
-                )}
-              </button>
+                style={{ 
+                  background: config.type === 'solid' || config.type === 'gradient' ? config.value : '#1f1f1f',
+                  backgroundImage: config.type === 'pattern_dots' ? `radial-gradient(${config.value} 1px, transparent 1px)` : 
+                                   config.type === 'pattern_grid' ? `linear-gradient(to right, ${config.value} 1px, transparent 1px), linear-gradient(to bottom, ${config.value} 1px, transparent 1px)` : undefined,
+                  backgroundSize: config.type === 'pattern_dots' ? '4px 4px' : '6px 6px'
+                }}
+                title={key}
+              />
             ))}
           </div>
         </section>
-
-        {/* ── Orientation Toggle ────────────────────────────────────── */}
-        <section className="space-y-4 border-t border-studio-border pt-6">
-          <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block">
-            Orientation
-          </label>
-          <div className="flex bg-studio-bg p-1 rounded-xl gap-1">
-            <button
-              onClick={() => updateCanvasSettings({ deviceOrientation: 'portrait' })}
-              className={`flex-1 py-2.5 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
-                canvasSettings.deviceOrientation === 'portrait'
-                  ? 'bg-studio-card text-studio-accent shadow-sm ring-1 ring-black/5'
-                  : 'text-studio-muted hover:text-studio-text'
-              }`}
-            >
-              <svg width="10" height="16" viewBox="0 0 10 16" fill="none">
-                <rect x="0.5" y="0.5" width="9" height="15" rx="2" stroke="currentColor" strokeWidth="1.2" />
-                <rect x="3" y="2" width="4" height="0.8" rx="0.4" fill="currentColor" opacity="0.5" />
-              </svg>
-              <span className="text-[10px] font-bold">Portrait</span>
-            </button>
-
-            <button
-              onClick={() => updateCanvasSettings({ deviceOrientation: 'landscape' })}
-              className={`flex-1 py-2.5 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
-                canvasSettings.deviceOrientation === 'landscape'
-                  ? 'bg-studio-card text-studio-accent shadow-sm ring-1 ring-black/5'
-                  : 'text-studio-muted hover:text-studio-text'
-              }`}
-            >
-              <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-                <rect x="0.5" y="0.5" width="15" height="9" rx="2" stroke="currentColor" strokeWidth="1.2" />
-                <rect x="2" y="3" width="0.8" height="4" rx="0.4" fill="currentColor" opacity="0.5" />
-              </svg>
-              <span className="text-[10px] font-bold">Paysage</span>
-            </button>
-          </div>
-        </section>
-
-        {/* ── Layout Settings ───────────────────────────────────────── */}
-        <section className="space-y-6 border-t border-studio-border pt-6">
-          <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block">
-            Réglages Studio
-          </label>
-
-          {/* Aspect format */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">
-              <span>Format Canvas</span>
-            </div>
-            <div className="grid grid-cols-4 gap-2 bg-studio-bg p-1 rounded-xl">
-              {(['9:16', '16:9', '1:1', '4:5'] as AspectRatio[]).map((format) => (
-                <button
-                  key={format}
-                  onClick={() => updateCanvasSettings({ format })}
-                  className={`py-1.5 text-[10px] font-bold rounded-lg transition-all ${
-                    canvasSettings.format === format
-                      ? 'bg-studio-card text-studio-accent shadow-sm ring-1 ring-black/5'
-                      : 'text-studio-muted hover:text-studio-text'
-                  }`}
-                >
-                  {format}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Fit mode */}
-          <div className="space-y-3">
-            <label className="text-[10px] font-semibold text-studio-muted uppercase tracking-wider block">
-              Recadrage Écran
-            </label>
-            <div className="flex bg-studio-bg p-1 rounded-xl gap-1">
-              {[
-                { id: 'contain', label: 'Adapter' },
-                { id: 'cover', label: 'Remplir' },
-                { id: 'fill', label: 'Étaler' },
-              ].map((mode) => (
-                <button
-                  key={mode.id}
-                  onClick={() => updateCanvasSettings({ videoFit: mode.id as any })}
-                  className={`flex-1 py-1.5 px-2 text-[10px] font-bold rounded-lg transition-all ${
-                    canvasSettings.videoFit === mode.id
-                      ? 'bg-studio-card text-studio-accent shadow-sm ring-1 ring-black/5'
-                      : 'text-studio-muted hover:text-studio-text'
-                  }`}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Padding */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center text-[11px] font-medium text-studio-text">
-              <span>Padding</span>
-              <span className="text-studio-muted">{canvasSettings.padding}px</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={canvasSettings.padding}
-              onChange={(e) => updateCanvasSettings({ padding: parseInt(e.target.value) })}
-              className="w-full h-1 bg-studio-bg rounded-full appearance-none cursor-pointer accent-studio-accent"
-            />
-          </div>
-
-          {/* Shadow */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center text-[11px] font-medium text-studio-text">
-              <span>Ombre Portée</span>
-              <span className="text-studio-muted">
-                {(canvasSettings.shadowIntensity * 100).toFixed(0)}%
-              </span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={canvasSettings.shadowIntensity * 100}
-              onChange={(e) =>
-                updateCanvasSettings({ shadowIntensity: parseInt(e.target.value) / 100 })
-              }
-              className="w-full h-1 bg-studio-bg rounded-full appearance-none cursor-pointer accent-studio-accent"
-            />
-          </div>
-
-          {/* Tilt */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center text-[11px] font-medium text-studio-text">
-              <span>Inclinaison (Tilt)</span>
-              <span className="text-studio-muted">{canvasSettings.mockupTilt.y}º</span>
-            </div>
-            <input
-              type="range"
-              min="-15"
-              max="15"
-              value={canvasSettings.mockupTilt.y}
-              onChange={(e) =>
-                updateCanvasSettings({
-                  mockupTilt: { ...canvasSettings.mockupTilt, y: parseInt(e.target.value) },
-                })
-              }
-              className="w-full h-1 bg-studio-bg rounded-full appearance-none cursor-pointer accent-studio-accent"
-            />
-          </div>
-        </section>
-
-        {/* ── Background Selection ────────────────────────────────────── */}
-        <section className="space-y-6 border-t border-studio-border pt-6">
-          <div className="space-y-4">
-            <label className="text-[10px] font-bold text-studio-muted uppercase tracking-widest block">
-              Style d'arrière-plan
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(PREMIUM_BACKGROUNDS).map(([key, config]) => (
-                <button
-                  key={key}
-                  onClick={() =>
-                    updateCanvasSettings({
-                      bgType: config.type as any,
-                      bgValue: config.value,
-                      backgroundPreset: key,
-                    })
-                  }
-                  className={`relative h-14 rounded-xl overflow-hidden border-2 transition-all p-2 text-left group ${
-                    canvasSettings.backgroundPreset === key
-                      ? 'border-studio-accent bg-studio-accent/5 ring-1 ring-studio-accent/20'
-                      : 'border-studio-border bg-studio-card hover:border-studio-muted/30'
-                  }`}
-                >
-                  <div className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity">
-                    {config.type === 'solid' || config.type === 'gradient' ? (
-                      <div style={{ background: config.value, width: '100%', height: '100%' }} />
-                    ) : key === 'none' ? (
-                      <div
-                        style={{
-                          backgroundColor: '#ffffff',
-                          backgroundImage: 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)',
-                          backgroundSize: '10px 10px',
-                          backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
-                          width: '100%',
-                          height: '100%',
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          backgroundColor: '#F8FAFC',
-                          backgroundImage:
-                            config.type === 'pattern_dots'
-                              ? `radial-gradient(${config.value} 1px, transparent 1px)`
-                              : `linear-gradient(to right, ${config.value} 1px, transparent 1px), linear-gradient(to bottom, ${config.value} 1px, transparent 1px)`,
-                          backgroundSize:
-                            config.type === 'pattern_dots' ? '10px 10px' : '15px 15px',
-                          width: '100%',
-                          height: '100%',
-                        }}
-                      />
-                    )}
-                  </div>
-                  <span
-                    className={`relative text-[10px] font-bold uppercase tracking-wider block ${
-                      canvasSettings.backgroundPreset === key
-                        ? 'text-studio-accent'
-                        : 'text-studio-text'
-                    }`}
-                  >
-                    {key === 'none' 
-                      ? 'Transparent' 
-                      : key
-                        .replace('solid_', '')
-                        .replace('gradient_', '')
-                        .replace('pattern_', '')
-                        .replace('_', ' ')}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* ── Export Footer ─────────────────────────────────────────── */}
-      <div className="p-6 border-t border-studio-border bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.02)] space-y-3">
-        {isImageMode ? (
-          <button
-            onClick={handlePngExport}
-            disabled={!mediaFile || exportStatus === 'exporting'}
-            className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all ${
-              mediaFile && exportStatus !== 'exporting'
-                ? 'bg-studio-text text-white hover:bg-black shadow-lg shadow-black/10 hover:scale-[1.02] active:scale-[0.98]'
-                : 'bg-studio-bg text-studio-muted cursor-not-allowed'
-            }`}
-          >
-            {exportStatus === 'exporting' ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
-                </svg>
-                Export en cours...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Exporter en PNG
-              </>
-            )}
-          </button>
-        ) : exportStatus === 'exporting' ? (
-          <div className="space-y-3">
-            <div className="flex justify-between items-center text-[10px] font-bold text-studio-muted uppercase tracking-wider">
-              <span>Génération du rendu...</span>
-              <span>{Math.round(exportProgress)}%</span>
-            </div>
-            <div className="w-full h-1.5 bg-studio-bg rounded-full overflow-hidden">
-              <div
-                className="h-full bg-studio-accent transition-all duration-300 ease-out"
-                style={{ width: `${exportProgress}%` }}
-              />
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={handleVideoExport}
-            disabled={!mediaFile}
-            className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all ${
-              mediaFile
-                ? 'bg-studio-text text-white hover:bg-black shadow-lg shadow-black/10 hover:scale-[1.02] active:scale-[0.98]'
-                : 'bg-studio-bg text-studio-muted cursor-not-allowed'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Exporter en 4K Studio
-          </button>
-        )}
-      </div>
-
-      <div className="py-4 border-t border-studio-border bg-studio-bg/10 flex justify-center">
-        <p className="text-[9px] text-studio-muted font-bold tracking-[0.3em] uppercase opacity-40">
-          High-End Rendering Platform
-        </p>
       </div>
     </div>
   );

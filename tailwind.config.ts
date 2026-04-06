@@ -7,6 +7,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        'f-base': '#0C0C0C',
+        'f-surface': '#161616',
+        'f-elevated': '#1F1F1F',
+        'f-border': 'rgba(255,255,255,0.07)',
+        'f-primary': '#F0F0F0',
+        'f-secondary': '#888888',
+        'f-accent': '#D0021B',
+        'f-accent-hover': '#E8021F',
         studio: {
           bg: '#F9F9FB',
           card: '#FFFFFF',
