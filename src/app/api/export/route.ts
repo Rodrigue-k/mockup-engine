@@ -1,5 +1,5 @@
 import { bundle } from '@remotion/bundler';
-import { renderMedia, selectComposition, getVideoMetadata } from '@remotion/renderer';
+import { renderMedia, renderStill, selectComposition, getVideoMetadata } from '@remotion/renderer';
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
@@ -99,24 +99,35 @@ export async function POST(req: Request) {
         });
         console.log("Composition sélectionnée.");
 
-        // Override duration dynamically
-        composition.durationInFrames = durationInFrames;
-
-        const outputFileName = `export-${Date.now()}.mp4`;
+        const isImageExport = formData.get('exportType') === 'image';
+        const fileExtension = isImageExport ? 'png' : 'mp4';
+        const outputFileName = `export-${Date.now()}.${fileExtension}`;
         const outputLocation = path.join(exportDir, outputFileName);
 
-        console.log(`Démarrage du rendu média (${durationInFrames} frames) vers ${outputLocation}...`);
-        await renderMedia({
-          composition,
-          serveUrl: bundleLocation,
-          codec: 'h264',
-          outputLocation: outputLocation,
-          inputProps: compositionProps,
-          onProgress: ({ progress }) => {
-            exportJobManager.update(jobId, { progress: Math.floor(progress * 100) });
-          }
-        });
-        console.log("Rendu terminé avec succès.");
+        if (isImageExport) {
+          console.log(`Démarrage du rendu image (frame 0) vers ${outputLocation}...`);
+          await renderStill({
+            composition,
+            serveUrl: bundleLocation,
+            output: outputLocation,
+            inputProps: compositionProps,
+            frame: 0,
+          });
+          console.log("Rendu image terminé.");
+        } else {
+          console.log(`Démarrage du rendu vidéo (${durationInFrames} frames) vers ${outputLocation}...`);
+          await renderMedia({
+            composition,
+            serveUrl: bundleLocation,
+            codec: 'h264',
+            outputLocation: outputLocation,
+            inputProps: compositionProps,
+            onProgress: ({ progress }) => {
+              exportJobManager.update(jobId, { progress: Math.floor(progress * 100) });
+            }
+          });
+          console.log("Rendu vidéo terminé.");
+        }
 
         exportJobManager.update(jobId, { 
           status: 'completed', 

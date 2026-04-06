@@ -2,10 +2,26 @@ import React from 'react';
 import { Composition, CalculateMetadataFunction, registerRoot } from 'remotion';
 import { RemotionDeviceFrame } from './RemotionDeviceFrame';
 import { FORMAT_DIMENSIONS, AspectRatio } from '@/config/studio-constants';
+import { MOCKUPS, getLandscapeMockup, MockupType } from '@/features/mockups/definitions';
 
 // Fonction exécutée par Chromium AVANT le rendu pour définir la taille
 const calculateMetadata: CalculateMetadataFunction<any> = ({ props }) => {
-  const formatKey = (props.settings?.format as AspectRatio) || '9:16';
+  const settings = props.settings;
+  const isTightCrop = settings?.tightCrop;
+
+  if (isTightCrop) {
+    const mockupType = (settings?.mockupType as MockupType) || 'iphone-17-pro-silver';
+    const baseMockup = MOCKUPS[mockupType] || MOCKUPS['iphone-17-pro-silver'];
+    const isLandscape = settings?.deviceOrientation === 'landscape';
+    const mockup = isLandscape ? getLandscapeMockup(baseMockup) : baseMockup;
+
+    return {
+      width: mockup.width,
+      height: mockup.height,
+    };
+  }
+
+  const formatKey = (settings?.format as AspectRatio) || '9:16';
   const dimensions = FORMAT_DIMENSIONS[formatKey] || FORMAT_DIMENSIONS['9:16'];
   
   return {
