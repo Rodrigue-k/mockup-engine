@@ -246,7 +246,7 @@ const EmbedModal = ({ isOpen, onClose, settings, mediaUrl }: any) => {
   const currentOrientation = settings.deviceOrientation;
   const currentSrc = mediaUrl || 'YOUR_IMAGE_URL';
 
-  const wcCode = `<script src="https://cdn.jsdelivr.net/gh/Rodrigue-k/mockup-engine@latest/public/frame.js"></script>\n\n<facet-frame\n  device="${currentDevice}"\n  src="${currentSrc}"\n  background="${settings.bgValue}"\n  tilt="${currentTilt}"\n  orientation="${currentOrientation}"\n/>`;
+  const wcCode = `<script src="https://cdn.jsdelivr.net/gh/Rodrigue-k/mockup-engine@master/public/frame.js"></script>\n\n<facet-frame\n  device="${currentDevice}"\n  src="${currentSrc}"\n  background="${settings.bgValue}"\n  tilt="${currentTilt}"\n  orientation="${currentOrientation}"\n/>`;
 
   const iframeCode = `<iframe\n  src="${origin}/embed?device=${currentDevice}&bg=${currentBg}&tilt=${currentTilt}&orientation=${currentOrientation}&src=${encodeURIComponent(currentSrc)}"\n  width="300"\n  height="600"\n  frameborder="0"\n/>`;
 
