@@ -7,8 +7,8 @@ import { Readable } from 'stream';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request, { params }: { params: { filename: string } }) {
-  const { filename } = params;
+export async function GET(req: Request, { params }: { params: Promise<{ filename: string }> }) {
+  const { filename } = await params;
 
   if (!filename) {
     return NextResponse.json({ error: 'Filename missing' }, { status: 400 });

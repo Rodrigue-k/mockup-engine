@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useStudioStore } from '@/store/useStudioStore';
 import { PREMIUM_BACKGROUNDS, AspectRatio } from '@/config/studio-constants';
 import { MOCKUPS, MockupType } from '@/features/mockups/definitions';
@@ -50,7 +50,10 @@ export const ControlPanel = () => {
   const {
     canvasSettings,
     updateCanvasSettings,
+    mediaPreviewUrl,
   } = useStudioStore();
+
+  const [showEmbed, setShowEmbed] = useState(false);
 
   const getLabel = (type: MockupType) => {
     switch(type) {
@@ -199,6 +202,175 @@ export const ControlPanel = () => {
             ))}
           </div>
         </section>
+
+        <section className="px-5 py-6 border-t border-f-border">
+          <button
+            onClick={() => setShowEmbed(true)}
+            style={{
+              width: '100%',
+              padding: '10px',
+              marginBottom: '8px',
+              background: 'transparent',
+              border: '0.5px solid rgba(255,255,255,0.12)',
+              borderRadius: '8px',
+              color: '#888',
+              fontSize: '13px',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              letterSpacing: '0.08em',
+              cursor: 'pointer',
+            }}
+          >
+            GET EMBED CODE
+          </button>
+        </section>
+      </div>
+
+      <EmbedModal 
+        isOpen={showEmbed} 
+        onClose={() => setShowEmbed(false)} 
+        settings={canvasSettings}
+        mediaUrl={mediaPreviewUrl}
+      />
+    </div>
+  );
+};
+
+const EmbedModal = ({ isOpen, onClose, settings, mediaUrl }: any) => {
+  const [tab, setTab] = useState<'wc' | 'iframe'>('wc');
+  const [copied, setCopied] = useState(false);
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  
+  const currentDevice = settings.mockupType;
+  const currentBg = encodeURIComponent(settings.bgValue);
+  const currentTilt = settings.mockupTilt.y;
+  const currentOrientation = settings.deviceOrientation;
+  const currentSrc = mediaUrl || 'YOUR_IMAGE_URL';
+
+  const wcCode = `<script src="https://cdn.jsdelivr.net/gh/Rodrigue-k/mockup-engine@latest/public/frame.js"></script>\n\n<facet-frame\n  device="${currentDevice}"\n  src="${currentSrc}"\n  background="${settings.bgValue}"\n  tilt="${currentTilt}"\n  orientation="${currentOrientation}"\n/>`;
+
+  const iframeCode = `<iframe\n  src="${origin}/embed?device=${currentDevice}&bg=${currentBg}&tilt=${currentTilt}&orientation=${currentOrientation}&src=${encodeURIComponent(currentSrc)}"\n  width="300"\n  height="600"\n  frameborder="0"\n/>`;
+
+  if (!isOpen) return null;
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(12px)',
+      }}
+      onClick={onClose}
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '440px',
+          background: 'rgba(21, 21, 21, 0.98)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '16px',
+          border: '0.5px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          padding: '24px',
+          color: '#F0F0F0',
+          position: 'relative',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h2 style={{ margin: 0, fontSize: '16px', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.12em', fontWeight: 700 }}>EMBED PRO</h2>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              background: 'rgba(255,255,255,0.05)', 
+              border: 'none', 
+              color: '#888', 
+              cursor: 'pointer', 
+              width: '28px', 
+              height: '28px', 
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px'
+            }}
+          >
+            &times;
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '3px', borderRadius: '10px', marginBottom: '20px', border: '0.5px solid rgba(255,255,255,0.05)' }}>
+          <button 
+            onClick={() => { setTab('wc'); setCopied(false); }}
+            style={{ 
+              flex: 1, padding: '8px', borderRadius: '7px', fontSize: '11px', cursor: 'pointer', border: 'none',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              background: tab === 'wc' ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: tab === 'wc' ? '#fff' : '#666',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              letterSpacing: '0.08em'
+            }}
+          >WEB COMPONENT</button>
+          <button 
+            onClick={() => { setTab('iframe'); setCopied(false); }}
+            style={{ 
+              flex: 1, padding: '8px', borderRadius: '7px', fontSize: '11px', cursor: 'pointer', border: 'none',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              background: tab === 'iframe' ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: tab === 'iframe' ? '#fff' : '#666',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              letterSpacing: '0.08em'
+            }}
+          >IFRAME FALLBACK</button>
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          <pre style={{ 
+            background: 'rgba(0,0,0,0.3)', 
+            padding: '16px', 
+            borderRadius: '12px', 
+            fontSize: '11px', 
+            fontFamily: "'JetBrains Mono', monospace", 
+            overflowX: 'auto',
+            border: '0.5px solid rgba(255,255,255,0.05)',
+            margin: '0 0 20px 0',
+            color: '#999',
+            lineHeight: '1.7',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all'
+          }}>
+            {tab === 'wc' ? wcCode : iframeCode}
+          </pre>
+        </div>
+
+        <button 
+          onClick={() => copy(tab === 'wc' ? wcCode : iframeCode)}
+          style={{
+            width: '100%',
+            padding: '12px',
+            background: copied ? '#4ade80' : '#F0F0F0',
+            color: '#000',
+            border: 'none',
+            borderRadius: '10px',
+            fontWeight: '700',
+            fontSize: '13px',
+            cursor: 'pointer',
+            fontFamily: "'Barlow Condensed', sans-serif",
+            letterSpacing: '0.08em',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          {copied ? 'COPIED TO CLIPBOARD' : 'COPY EMBED CODE'}
+        </button>
       </div>
     </div>
   );

@@ -7,14 +7,12 @@ interface StudioCompositionProps {
   mediaUrl: string | null;
   mediaType: 'video' | 'image' | null;
   settings: CanvasSettings;
-  baseUrl?: string;
 }
 
 export const StudioComposition: React.FC<StudioCompositionProps> = ({ 
   mediaUrl, 
   mediaType, 
-  settings,
-  baseUrl 
+  settings 
 }) => {
   const backgroundShapes = BACKGROUND_PRESETS[settings.backgroundPreset] || [];
 
@@ -47,7 +45,6 @@ export const StudioComposition: React.FC<StudioCompositionProps> = ({
           mediaUrl={mediaUrl} 
           mediaType={mediaType} 
           settings={settings} 
-          baseUrl={baseUrl}
         />
       </AbsoluteFill>
     </AbsoluteFill>
