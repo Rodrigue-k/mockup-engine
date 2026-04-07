@@ -17,6 +17,15 @@
     },
   };
 
+  // Spécifications techniques extraites de definitions.ts pour un rendu au pixel près
+  const MOCKUPS_DATA = {
+    'iphone-17-pro': {
+      width: 448,
+      height: 916,
+      viewport: { x: 22, y: 20, width: 404, height: 876, r: 57 }
+    }
+  };
+
   // Détection dynamique de l'URL de base pour les assets (images des téléphones)
   const SCRIPT_URL = document.currentScript ? document.currentScript.src : '';
   let BASE_URL = window.location.origin + '/assets/mockups';
@@ -31,81 +40,75 @@
       this.attachShadow({ mode: 'open' });
     }
 
+    connectedCallback() {
+      this.render();
+    }
+
     static get observedAttributes() {
-      return ['device', 'src', 'background', 'tilt', 'orientation', 'fit'];
+      return ['device', 'src', 'background', 'tilt', 'orientation'];
     }
 
     attributeChangedCallback() {
       this.render();
     }
 
-    connectedCallback() {
-      this.render();
-    }
-
     render() {
-      const deviceId = this.getAttribute('device') || 'iphone-17-pro-silver';
-      const src = this.getAttribute('src') || null;
+      const device = this.getAttribute('device') || 'iphone-17-pro-silver';
+      const src = this.getAttribute('src');
       const background = this.getAttribute('background') || '#000000';
-      const tilt = parseFloat(this.getAttribute('tilt') || '0');
+      const tilt = this.getAttribute('tilt') || '0';
       const orientation = this.getAttribute('orientation') || 'portrait';
-      const fit = this.getAttribute('fit') || 'cover';
-
-      const mockup = MOCKUPS[deviceId] || MOCKUPS['iphone-17-pro-silver'];
-      const { width, height, viewport: vp, frameId } = mockup;
 
       const isLandscape = orientation === 'landscape';
-      const W = isLandscape ? height : width;
-      const H = isLandscape ? width : height;
-
-      const screenLeft = `${(vp.x / width) * 100}%`;
-      const screenTop = `${(vp.y / height) * 100}%`;
-      const screenWidth = `${(vp.width / width) * 100}%`;
-      const screenHeight = `${(vp.height / height) * 100}%`;
-      const radius = vp.borderRadius;
+      
+      // On récupère les données de base pour l'iPhone 17 Pro
+      const data = MOCKUPS_DATA['iphone-17-pro'];
+      const frameId = device.includes('silver') ? 'iphone17-silver' : 
+                      device.includes('orange') ? 'iphone17-orange' : 'iphone17-deepblue';
 
       const bodyUrl = `${BASE_URL}/${frameId}/body.png`;
 
-      const perspectiveTransform = `perspective(1200px) rotateY(${tilt}deg)`;
-      const landscapeTransform = isLandscape ? 'rotate(-90deg)' : '';
-
       this.shadowRoot.innerHTML = `
         <style>
-          :host {
-            display: inline-block;
-            width: 100%;
-            height: 100%;
+          :host { 
+            display: block; 
+            width: 100%; 
+            height: 100%; 
+            --bg-color: ${background};
           }
-          .stage {
+          .wrapper {
+            position: relative;
             width: 100%;
             height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: ${background};
-            box-sizing: border-box;
+            background: var(--bg-color);
+            overflow: hidden;
           }
-          .device {
+          .frame-container {
             position: relative;
-            height: 100%;
-            width: auto;
-            aspect-ratio: ${W} / ${H};
-            transform: ${perspectiveTransform};
+            width: ${data.width}px;
+            height: ${data.height}px;
+            transform: perspective(1200px) rotateY(${tilt}deg);
+            transform-style: preserve-3d;
+            transition: transform 0.4s ease-out;
           }
-          .inner {
+          .device-body {
             position: absolute;
             inset: 0;
-            transform: ${landscapeTransform};
-            transform-origin: center center;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            pointer-events: none;
+            ${isLandscape ? 'transform: rotate(-90deg);' : ''}
           }
-          .screen-layer {
+          .screen {
             position: absolute;
-            top: ${screenTop};
-            left: ${screenLeft};
-            width: ${screenWidth};
-            height: ${screenHeight};
-            overflow: hidden;
-            border-radius: ${radius}px;
+            top: ${data.viewport.y}px;
+            left: ${data.viewport.x}px;
+            width: ${data.viewport.width}px;
+            height: ${data.viewport.height}px;
             background: #000;
           }
           .media {
