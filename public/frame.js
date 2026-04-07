@@ -1,4 +1,5 @@
 (function() {
+  // Définitions géométriques précises pour iPhone 17 Pro
   const MOCKUPS = {
     'iphone-17-pro-silver': {
       width: 448, height: 916,
@@ -17,56 +18,114 @@
     },
   };
 
-  // Spécifications techniques extraites de definitions.ts pour un rendu au pixel près
-  const MOCKUPS_DATA = {
-    'iphone-17-pro': {
-      width: 448,
-      height: 916,
-      viewport: { x: 22, y: 20, width: 404, height: 876, r: 57 }
-    }
-  };
-
-  // Détection dynamique de l'URL de base pour les assets (images des téléphones)
-  const SCRIPT_URL = document.currentScript ? document.currentScript.src : '';
+  // Détection robuste de l'URL de base pour les assets (images des téléphones)
+  const SCRIPT_TAG = document.currentScript;
   let BASE_URL = window.location.origin + '/assets/mockups';
 
-  if (SCRIPT_URL.includes('jsdelivr.net')) {
-    BASE_URL = SCRIPT_URL.replace('/public/frame.js', '/public/assets/mockups');
+  if (SCRIPT_TAG && SCRIPT_TAG.src) {
+    const scriptUrl = SCRIPT_TAG.src;
+    // On prend le dossier contenant le script et on ajoute assets/mockups
+    const folderPath = scriptUrl.substring(0, scriptUrl.lastIndexOf('/'));
+    BASE_URL = folderPath + '/assets/mockups';
+    
+    // Cas spécial pour JSDelivr qui peut ne pas avoir le bon path relatif sans cette correction
+    if (scriptUrl.includes('jsdelivr.net')) {
+       BASE_URL = scriptUrl.replace('/public/frame.js', '/public/assets/mockups');
+       if (BASE_URL.includes('/gh/')) {
+          BASE_URL = BASE_URL.replace('/gh/', '/gh/').split('/public/')[0] + '/public/assets/mockups';
+       }
+    }
   }
 
   class FacetFrame extends HTMLElement {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
+      this._observer = null;
     }
 
     connectedCallback() {
       this.render();
+      this._setupObserver();
+    }
+
+    disconnectedCallback() {
+      if (this._observer) {
+        this._observer.disconnect();
+      }
+    }
+
+    _setupObserver() {
+      if (this._observer) this._observer.disconnect();
+      
+      this._observer = new ResizeObserver(() => {
+        // Use requestAnimationFrame to ensure we measure after layout
+        requestAnimationFrame(() => this._updateScale());
+      });
+      
+      const wrapper = this.shadowRoot.querySelector('.wrapper');
+      if (wrapper) this._observer.observe(wrapper);
+    }
+
+    _updateScale() {
+      const wrapper = this.shadowRoot.querySelector('.wrapper');
+      const container = this.shadowRoot.querySelector('.frame-target');
+      if (!wrapper || !container) return;
+
+      const rect = wrapper.getBoundingClientRect();
+      const deviceId = this.getAttribute('device') || 'iphone-17-pro-silver';
+      const mockup = MOCKUPS[deviceId] || MOCKUPS['iphone-17-pro-silver'];
+      const orientation = this.getAttribute('orientation') || 'portrait';
+      const isLandscape = orientation === 'landscape';
+
+      const targetW = isLandscape ? mockup.height : mockup.width;
+      const targetH = isLandscape ? mockup.width : mockup.height;
+
+      // Protection contre divisions par zéro ou rect non défini
+      if (rect.width === 0 || rect.height === 0 || targetW === 0 || targetH === 0) return;
+
+      const scaleX = rect.width / targetW;
+      const scaleY = rect.height / targetH;
+      const scale = Math.min(scaleX, scaleY);
+
+      container.style.transform = `scale(${scale})`;
     }
 
     static get observedAttributes() {
       return ['device', 'src', 'background', 'tilt', 'orientation'];
     }
 
-    attributeChangedCallback() {
-      this.render();
+    attributeChangedCallback(name, oldVal, newVal) {
+      if (oldVal !== newVal) {
+        this.render();
+      }
     }
 
     render() {
       const device = this.getAttribute('device') || 'iphone-17-pro-silver';
       const src = this.getAttribute('src');
       const background = this.getAttribute('background') || '#000000';
-      const tilt = this.getAttribute('tilt') || '0';
+      const tilt = parseFloat(this.getAttribute('tilt') || '0');
       const orientation = this.getAttribute('orientation') || 'portrait';
 
       const isLandscape = orientation === 'landscape';
+      const m = MOCKUPS[device] || MOCKUPS['iphone-17-pro-silver'];
       
-      // On récupère les données de base pour l'iPhone 17 Pro
-      const data = MOCKUPS_DATA['iphone-17-pro'];
-      const frameId = device.includes('silver') ? 'iphone17-silver' : 
-                      device.includes('orange') ? 'iphone17-orange' : 'iphone17-deepblue';
+      const viewport = isLandscape ? {
+          x: m.viewport.y,
+          y: m.viewport.x,
+          width: m.viewport.height,
+          height: m.viewport.width,
+          r: m.viewport.borderRadius
+      } : {
+          ...m.viewport,
+          r: m.viewport.borderRadius
+      };
 
-      const bodyUrl = `${BASE_URL}/${frameId}/body.png`;
+      const frameWidth = isLandscape ? m.height : m.width;
+      const frameHeight = isLandscape ? m.width : m.height;
+
+      const bodyUrl = `${BASE_URL}/${m.frameId}/body.png`;
 
       this.shadowRoot.innerHTML = `
         <style>
@@ -74,7 +133,6 @@
             display: block; 
             width: 100%; 
             height: 100%; 
-            --bg-color: ${background};
           }
           .wrapper {
             position: relative;
@@ -83,62 +141,81 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-color);
+            background: ${background};
             overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
           }
-          .frame-container {
-            position: relative;
-            width: ${data.width}px;
-            height: ${data.height}px;
-            transform: perspective(1200px) rotateY(${tilt}deg);
-            transform-style: preserve-3d;
-            transition: transform 0.4s ease-out;
-          }
-          .device-body {
-            position: absolute;
-            inset: 0;
+          .stage {
+            perspective: 1200px;
             width: 100%;
             height: 100%;
-            z-index: 20;
-            pointer-events: none;
-            ${isLandscape ? 'transform: rotate(-90deg);' : ''}
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
-          .screen {
+          .frame-target {
+            position: relative;
+            width: ${frameWidth}px;
+            height: ${frameHeight}px;
+            transform-origin: center center;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+          }
+          .rotate-container {
+            width: 100%;
+            height: 100%;
+            transform: rotateY(${tilt}deg);
+            transform-style: preserve-3d;
+          }
+          .screen-layer {
             position: absolute;
-            top: ${data.viewport.y}px;
-            left: ${data.viewport.x}px;
-            width: ${data.viewport.width}px;
-            height: ${data.viewport.height}px;
+            top: ${viewport.y}px;
+            left: ${viewport.x}px;
+            width: ${viewport.width}px;
+            height: ${viewport.height}px;
             background: #000;
+            border-radius: ${viewport.r}px;
+            overflow: hidden;
+            z-index: 10;
+            box-shadow: 0 0 0 1.5px #000;
           }
           .media {
             width: 100%;
             height: 100%;
-            object-fit: ${fit};
+            object-fit: cover;
             display: block;
           }
           .chassis {
             position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            z-index: 10;
+            top: 50%;
+            left: 50%;
+            width: ${m.width}px;
+            height: ${m.height}px;
+            transform: translate(-50%, -50%) ${isLandscape ? 'rotate(-90deg)' : ''};
             pointer-events: none;
+            z-index: 50;
           }
         </style>
 
-        <div class="stage">
-          <div class="device">
-            <div class="inner">
-              <div class="screen-layer">
-                ${src ? `<img class="media" src="${src}" crossorigin="anonymous" />` : ''}
+        <div class="wrapper">
+          <div class="stage">
+            <div class="frame-target">
+              <div class="rotate-container">
+                <div class="screen-layer">
+                  ${src ? `<img class="media" src="${src}" />` : ''}
+                </div>
+                <img class="chassis" src="${bodyUrl}" />
               </div>
-              <img class="chassis" src="${bodyUrl}" crossorigin="anonymous" />
             </div>
           </div>
         </div>
       `;
+      
+      // Update scale after render
+      requestAnimationFrame(() => this._updateScale());
+      
+      // We need to re-setup the observer target if innerHTML was changed
+      this._setupObserver();
     }
   }
 

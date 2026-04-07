@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Facet Embed - GitHub</title>
+    <style>
+        body {
+            background-color: #0c0c0c;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 500px;
+            height: 700px;
+            border: 1px hide rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-weight: 300;
+            opacity: 0.8;
+        }
+    </style>
+
+    <!-- TON SCRIPT CHARGÉ DEPUIS GITHUB -->
+    <script src="https://cdn.jsdelivr.net/gh/Rodrigue-k/mockup-engine@master/public/frame.js"></script>
+</head>
+
+<body>
+
+    <h1>Test de l'intégration GitHub</h1>
+    <p>Ce téléphone est chargé via ton script distant sur GitHub.</p>
+
+    <div class="container">
+        <!-- TON WEB COMPONENT -->
+        <facet-frame device="iphone-17-pro-silver" background="#FFFFFF" tilt="0" orientation="portrait"></facet-frame>
+    </div>
+
+</body>
+
+</html>
